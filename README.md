@@ -38,6 +38,8 @@ caseplay logs
 caseplay down
 ```
 
+数据库镜像默认使用 MySQL 8.4，也可在 `.env` 中设置 `MYSQL_IMAGE=mysql:8.0` 使用兼容的 MySQL 8.0 镜像。
+
 如本机 8080 端口已被占用，可在部署目录的 `.env` 设置 `CASEPLAY_PORT=8081` 后启动。
 
 重新运行 `config` 可切换平台；切换时清除上一平台的模型和接口覆盖配置。各平台专用密钥分别保存。密钥仅保存在部署目录的 `.env` 中，Unix 系统权限设为 600，并自动加入 Git 忽略列表。请保管该目录。自动化场景可从安全的环境变量 `CASEPLAY_API_KEY` 读取密钥，配合 `--provider` 使用，避免把密钥直接写入命令参数。

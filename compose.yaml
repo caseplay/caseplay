@@ -1,6 +1,6 @@
 services:
   db:
-    image: mysql:8.4
+    image: ${MYSQL_IMAGE:-mysql:8.4}
     environment:
       MYSQL_DATABASE: lmt
       MYSQL_USER: ${MYSQL_USER:-lmt}
