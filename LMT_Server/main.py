@@ -305,6 +305,7 @@ def get_report(session_id):
             scripts = parse_markdown_files()
             script = next((s for s in scripts if s["id"] == session['script_id']), None)
             session['script_title'] = script['title'] if script else "Unknown Script"
+            session['model_label'] = os.getenv('AI_MODEL') or {'gemini': 'Gemini', 'deepseek': 'DeepSeek', 'openai': 'OpenAI', 'qwen': '通义千问'}.get(os.getenv('AI_PROVIDER', 'gemini'), 'AI 主持模型')
 
             return jsonify(session), 200
     except Exception as e:

@@ -75,7 +75,7 @@ const startGame = async () => {
     router.push({ name: 'Gameplay', params: { session_id: res.data.session_id } })
   } catch (err) {
     console.error("Failed to start game:", err)
-    ElMessage.error(err.response?.data?.error || "推演启动失败。请确保后端已启动并且 Gemini API key 有效。")
+    ElMessage.error(err.response?.data?.error || "推演启动失败。请确保后端已启动并且 模型 API Key 有效。")
   } finally {
     isLoading.value = false
   }

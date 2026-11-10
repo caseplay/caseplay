@@ -26,7 +26,7 @@
           <div class="signatures">
             <div class="sign-block">
               <p>AI 裁判长数字签名：</p>
-              <p class="signature-font">Gemini 2.5 Flash</p>
+              <p class="signature-font">{{ reportData.model_label || 'AI 主持模型' }}</p>
             </div>
             <div class="sign-block stamp-container">
               <div class="red-stamp">
