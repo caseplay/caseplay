@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     character_name VARCHAR(255) NOT NULL,
     chat_history JSON,
     current_scene TEXT,
+    status VARCHAR(20) NOT NULL DEFAULT 'ongoing',
+    end_report LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

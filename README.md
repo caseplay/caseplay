@@ -2,6 +2,57 @@
 
 基于 Vue、Flask 与 MySQL 的法治教育互动剧本平台，支持 AI 主持、NPC 对话、分支选择与结局学习报告。
 
+## npm 快速安装部署（推荐）
+
+需要 Node.js 20+、已启动的 Docker 和 Docker Compose。无需单独安装 Python 或 MySQL。
+
+当前可直接从 GitHub 安装：
+
+```sh
+npm install -g github:caseplay/caseplay
+caseplay init mycaseplay
+cd mycaseplay
+caseplay config
+caseplay config --mail
+caseplay up
+```
+
+`config` 交互选择 Gemini、OpenAI、DeepSeek、通义千问或自定义兼容接口，API Key 输入不回显。`config --mail` 配置 QQ 邮箱与 SMTP 授权码，注册验证码功能需要此配置。打开 http://localhost:8080 。首次启动需要联网下载基础镜像及依赖。
+
+无需全局安装也可执行：
+
+```sh
+npx --yes --package=github:caseplay/caseplay caseplay init mycaseplay
+npx --yes --package=github:caseplay/caseplay caseplay config --dir mycaseplay
+npx --yes --package=github:caseplay/caseplay caseplay up --dir mycaseplay
+```
+
+指定平台或自定义接口：
+
+```sh
+caseplay config --provider deepseek
+caseplay config --provider custom --model your-model --base-url https://your-gateway.example/v1
+caseplay up
+caseplay status
+caseplay logs
+caseplay down
+```
+
+重新运行 `config` 可切换平台；切换时清除上一平台的模型和接口覆盖配置。各平台专用密钥分别保存。密钥仅保存在部署目录的 `.env` 中，Unix 系统权限设为 600，并自动加入 Git 忽略列表。请保管该目录。自动化场景可从安全的环境变量 `CASEPLAY_API_KEY` 读取密钥，配合 `--provider` 使用，避免把密钥直接写入命令参数。
+
+`init` 自动生成数据库随机密码，拒绝覆盖已存在的目录。`down` 保留数据库卷。已有数据库卷不会因修改 `.env` 自动更新密码；请保留原数据库密码。已有旧数据库还需补齐 sessions 表的 status 和 end_report 字段，新部署自动创建。
+
+### 发布到 npm
+
+仓库已包含 npm 包配置和发布前测试。维护者使用有发布权限的 npm 账号执行：
+
+```sh
+npm login
+npm publish --access public
+```
+
+成功发布且包名可用后，用户可以改用 `npm install -g caseplay` 或 `npx caseplay`。目前尚未发布到 npm registry，GitHub 安装命令可先使用。
+
 ## Docker 快速部署
 
 安装 Docker Compose 后，在项目根目录执行：
