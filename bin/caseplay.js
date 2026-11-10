@@ -117,7 +117,7 @@ try {
     if (command === 'up') {
       if (!env.AI_PROVIDER || !(env[`${env.AI_PROVIDER.toUpperCase()}_API_KEY`] || env.AI_API_KEY)) throw new Error('请先执行 caseplay config 配置模型密钥。');
       docker(['up', '-d', '--build']);
-      console.log('服务已启动：http://localhost:8080（首次构建可能需要数分钟）');
+      console.log(`服务已启动：http://localhost:${env.CASEPLAY_PORT || '8080'}（首次构建可能需要数分钟）`);
     } else docker(command === 'logs' ? ['logs', '--tail', '100'] : command === 'status' ? ['ps'] : ['down']);
   } else throw new Error(`未知命令：${command}`);
 } catch (error) {

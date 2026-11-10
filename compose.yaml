@@ -29,7 +29,7 @@ services:
       context: .
       dockerfile: deploy/Dockerfile.ui
     ports:
-      - '8080:80'
+      - '${CASEPLAY_PORT:-8080}:80'
     depends_on:
       - api
 volumes:
