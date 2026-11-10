@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/__pycache__
+.env
+.venv
+.git
+结题材料
+docs

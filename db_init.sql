@@ -1,0 +1,23 @@
+CREATE DATABASE IF NOT EXISTS lmt CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE lmt;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    remaining_plays INT DEFAULT 1,
+    is_admin BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    script_id VARCHAR(255) NOT NULL,
+    character_name VARCHAR(255) NOT NULL,
+    chat_history JSON,
+    current_scene TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

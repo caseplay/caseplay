@@ -1,0 +1,9 @@
+mysql:
+  user: lmt
+  password: ''
+  host: 127.0.0.1
+  port: 3306
+  database: lmt
+QQ_Mail:
+  SENDER: ''
+  API_KEY: ''
