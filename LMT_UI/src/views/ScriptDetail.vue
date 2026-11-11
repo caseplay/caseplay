@@ -1,173 +1,128 @@
 <template>
-  <div class="script-detail-page">
-    <div v-if="script" class="glass-panel detail-card">
-      <button class="back-btn" @click="router.back()">❮ 返回</button>
-
-      <div class="header">
-        <h1>{{ script.title }}</h1>
-        <p class="tagline">选择你的角色开始</p>
-      </div>
-
-      <div class="roles-grid">
-        <div
-          v-for="(role, index) in script.roles"
-          :key="index"
-          class="role-card"
-          :class="{ selected: selectedRole === role }"
-          @click="selectedRole = role"
+  <div class="page detail-page" v-if="script">
+    <RouterLink to="/" class="back-link"><ArrowLeft />返回剧本探索</RouterLink>
+    <header class="detail-hero" :class="script.accent">
+      <div class="detail-hero-copy">
+        <span class="eyebrow"
+          >{{ script.category }} / {{ script.difficulty }}</span
         >
-          <span class="role-icon">🎭</span>
-          <h3>{{ role }}</h3>
+        <h1>{{ script.title }}</h1>
+        <p>{{ script.summary }}</p>
+        <div class="detail-pills">
+          <span><Clock />{{ script.duration }} 分钟</span
+          ><span><User />{{ script.roles.length }} 个角色</span
+          ><span><Document />{{ script.evidence_count }} 条线索</span>
         </div>
       </div>
-
-      <div class="action-footer">
-        <button
-          class="start-btn"
-          :disabled="!selectedRole || isLoading"
-          @click="startGame"
-        >
-          {{ isLoading ? 'AI 初始化中...' : '开始推演' }}
-        </button>
+      <div class="detail-hero-art">
+        <Reading /><span>EVERY PERSPECTIVE COUNTS</span>
       </div>
+    </header>
+    <div class="detail-columns">
+      <section>
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">CHOOSE YOUR PERSPECTIVE</span>
+            <h2>你想从谁的视角出发？</h2>
+          </div>
+        </div>
+        <div class="role-grid">
+          <button
+            v-for="(role, i) in script.roles"
+            :key="role.name"
+            class="role-card"
+            :class="{ selected: character === role.name }"
+            @click="character = role.name"
+          >
+            <span class="role-avatar" :class="'tone-' + (i % 4)"
+              ><UserFilled
+            /></span>
+            <h3>{{ role.name }}</h3>
+            <p>{{ role.description }}</p>
+            <span class="role-check">{{
+              character === role.name ? "已选择 ✓" : "选择这个角色"
+            }}</span>
+          </button>
+        </div>
+        <div class="case-context">
+          <h3>案件序章</h3>
+          <p>{{ script.context }}</p>
+        </div>
+      </section>
+      <aside class="detail-aside">
+        <h3>这段故事，你将探索</h3>
+        <ol class="goal-list">
+          <li v-for="goal in script.goals" :key="goal">{{ goal }}</li>
+        </ol>
+        <div class="aside-rule"></div>
+        <h4>官方法规阅读</h4>
+        <a
+          v-for="reference in script.legal_references"
+          :key="reference.url"
+          :href="reference.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="law-link"
+          ><Document />{{ reference.title }}<TopRight
+        /></a>
+        <p class="small muted">
+          这是教学情境。请在推演中区分事实、推测与适用条件。
+        </p>
+        <button
+          class="primary-button"
+          @click="start"
+          :disabled="!character || busy"
+        >
+          {{ busy ? "AI 正在布置第一幕…" : "进入三维剧场" }}<ArrowRight />
+        </button>
+        <p v-if="error" class="error-banner">{{ error }}</p>
+      </aside>
     </div>
-    <div v-else class="loading">加载中...</div>
+  </div>
+  <div v-else class="page loading-state">
+    {{ error || "正在打开案例档案…" }}
   </div>
 </template>
-
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
-import { ElMessage } from 'element-plus'
-
-const route = useRoute()
-const router = useRouter()
-const script = ref(null)
-const selectedRole = ref(null)
-const isLoading = ref(false)
-
-const API_BASE = (import.meta.env.VITE_API_BASE || '/api')
-
+import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Clock,
+  User,
+  UserFilled,
+  Document,
+  Reading,
+  TopRight,
+} from "@element-plus/icons-vue";
+import { api } from "../lib/api";
+const route = useRoute(),
+  router = useRouter(),
+  script = ref(null),
+  character = ref(""),
+  busy = ref(false),
+  error = ref("");
 onMounted(async () => {
   try {
-    const res = await axios.get(`${API_BASE}/scripts/${route.params.id}`)
-    script.value = res.data
-  } catch (err) {
-    console.error("Failed to fetch script:", err)
-    router.push({ name: 'Home' })
+    script.value = await api("/scripts/" + route.params.id);
+  } catch (e) {
+    error.value = e.message;
   }
-})
-
-const startGame = async () => {
-  if (!selectedRole.value) return
-  isLoading.value = true
-
+});
+async function start() {
+  busy.value = true;
+  error.value = "";
   try {
-    const res = await axios.post(`${API_BASE}/play/start`, {
-      token: localStorage.getItem('token'),
-      script_id: script.value.id,
-      character: selectedRole.value
-    })
-
-    // Pass initial scene via state
-    localStorage.setItem('current_scene', JSON.stringify(res.data.scene))
-    router.push({ name: 'Gameplay', params: { session_id: res.data.session_id } })
-  } catch (err) {
-    console.error("Failed to start game:", err)
-    ElMessage.error(err.response?.data?.error || "推演启动失败。请确保后端已启动并且 模型 API Key 有效。")
+    const result = await api("/play/start", {
+      method: "POST",
+      body: { script_id: script.value.id, character: character.value },
+    });
+    router.push("/play/" + result.session_id);
+  } catch (e) {
+    error.value = e.message;
   } finally {
-    isLoading.value = false
+    busy.value = false;
   }
 }
 </script>
-
-<style scoped>
-.script-detail-page {
-  padding: 4rem 2rem;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.detail-card {
-  position: relative;
-  padding: 4rem;
-}
-
-.back-btn {
-  position: absolute;
-  top: 2rem;
-  left: 2rem;
-  background: transparent;
-  color: var(--text-muted);
-}
-.back-btn:hover {
-  background: rgba(255,255,255,0.1);
-  color: white;
-}
-
-.header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.header h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.roles-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-}
-
-.role-card {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.role-card:hover {
-  background: rgba(59, 130, 246, 0.1);
-  transform: translateY(-5px);
-}
-
-.role-card.selected {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: var(--primary);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-}
-
-.role-icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.action-footer {
-  text-align: center;
-}
-
-.start-btn {
-  font-size: 1.2rem;
-  padding: 1rem 3rem;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  border-radius: 50px;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-}
-.start-btn:hover:not(:disabled) {
-  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.6);
-}
-
-.loading {
-  text-align: center;
-  font-size: 1.5rem;
-  color: var(--text-muted);
-}
-</style>

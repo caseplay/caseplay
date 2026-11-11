@@ -1,0 +1,778 @@
+{
+  "legal_sources": [
+    {
+      "title": "中华人民共和国未成年人保护法",
+      "url": "https://www.moe.gov.cn/jyb_sjzl/sjzl_zcfg/zcfg_qtxgfl/202110/t20211025_574798.html"
+    },
+    {
+      "title": "中华人民共和国反电信网络诈骗法",
+      "url": "https://www.miit.gov.cn/jgsj/zfs/fl/art/2022/art_d30139b442a141f48f05775d8c0b3cee.html"
+    },
+    {
+      "title": "中华人民共和国个人信息保护法",
+      "url": "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+    },
+    {
+      "title": "中华人民共和国民法典",
+      "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+    }
+  ],
+  "scripts": [
+    {
+      "id": "Script01.md",
+      "title": "沉默的走廊",
+      "subtitle": "校园霸凌与合法求助",
+      "category": "校园保护",
+      "difficulty": "入门",
+      "duration": 12,
+      "summary": "下课后，一次持续数周的排挤升级为走廊里的推搡。你需要在保护自己、保存证据与寻求帮助之间作出选择。",
+      "context": "小林长期遭到同学陈某索要零用钱。今天放学后，陈某与同伴将小林堵在走廊，要求交出手机，并推了小林一把。班主任在隔壁办公室，值日生看见了经过。请从正在发生的冲突开始，区分事实与推测，不预设任何人已经违法或承担最终责任。",
+      "roles": [
+        {
+          "name": "被欺凌学生",
+          "description": "从被欺凌学生的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "班主任",
+          "description": "从班主任的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "目击同学",
+          "description": "从目击同学的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "家长",
+          "description": "从家长的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "识别持续侵害与安全边界",
+        "理解合法求助和证据留存",
+        "区分制止侵害与报复行为"
+      ],
+      "learning_points": [
+        "识别持续侵害与安全边界",
+        "理解合法求助和证据留存",
+        "区分制止侵害与报复行为"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "索要钱款的聊天记录",
+          "content": "聊天中有连续三次索要零用钱的消息，但尚未核实完整上下文。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "值日生的见闻",
+          "content": "值日生看见陈某先推了小林，愿意在老师陪同下陈述经过。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "走廊监控线索",
+          "content": "学校保存有当日走廊监控，应由老师按程序调取，不鼓励学生擅自传播。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "家校沟通记录",
+          "content": "老师曾收到关于同伴排挤的反馈，后续处理需要听取双方及监护人的陈述。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国未成年人保护法",
+          "url": "https://www.moe.gov.cn/jyb_sjzl/sjzl_zcfg/zcfg_qtxgfl/202110/t20211025_574798.html"
+        },
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "school",
+      "accent": "teal",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script02.md",
+      "title": "从天而降的花盆",
+      "subtitle": "高空抛物与事实认定",
+      "category": "民事生活",
+      "difficulty": "进阶",
+      "duration": 16,
+      "summary": "花盆从楼上坠落，路人受伤。多户住户的说法彼此矛盾，一段模糊影像成为调查的起点。",
+      "context": "一座住宅楼下发生花盆坠落事件，行人受伤。物业提供的影像仅拍到坠落物，不能直接辨认来源。4楼、5楼和6楼均摆放花盆。请关注因果关系、证据证明力与依法调查，不把某户居民预设为责任人。",
+      "roles": [
+        {
+          "name": "受伤行人家属",
+          "description": "从受伤行人家属的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "物业工作人员",
+          "description": "从物业工作人员的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "楼内住户",
+          "description": "从楼内住户的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "调解员",
+          "description": "从调解员的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "区分猜测与可验证证据",
+        "梳理损害事实与因果关系",
+        "选择合法调查和救济路径"
+      ],
+      "learning_points": [
+        "区分猜测与可验证证据",
+        "梳理损害事实与因果关系",
+        "选择合法调查和救济路径"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "现场照片",
+          "content": "照片显示花盆碎片和物品落点，拍摄角度无法判断楼层。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "物业巡查表",
+          "content": "楼道巡查曾提示部分窗台摆物，但没有记录具体坠落行为。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "目击者陈述",
+          "content": "目击者只看到一只手伸出窗外，未看清人员身份。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "影像保存记录",
+          "content": "物业保留了事发前后影像，需按程序调取完整片段。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "home",
+      "accent": "blue",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script03.md",
+      "title": "自动驾驶的十字路口",
+      "subtitle": "智能驾驶事故与责任边界",
+      "category": "科技社会",
+      "difficulty": "挑战",
+      "duration": 20,
+      "summary": "一次道路事故同时牵涉驾驶员、设备和服务商。如何在技术日志与个人陈述中厘清事实？",
+      "context": "一辆启用辅助驾驶功能的汽车在路口与非机动车发生碰撞。驾驶员声称系统没有提醒，服务商认为该功能要求驾驶员持续注意。请核对功能边界、当时路况、操作记录和损害情况，不将辅助驾驶简单等同于无人驾驶。",
+      "roles": [
+        {
+          "name": "驾驶员",
+          "description": "从驾驶员的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "受伤骑行者",
+          "description": "从受伤骑行者的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "服务工程师",
+          "description": "从服务工程师的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "事故调解员",
+          "description": "从事故调解员的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "核对技术功能与使用约定",
+        "辨析日志和个人陈述",
+        "在事实基础上讨论责任"
+      ],
+      "learning_points": [
+        "核对技术功能与使用约定",
+        "辨析日志和个人陈述",
+        "在事实基础上讨论责任"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "使用说明摘记",
+          "content": "功能说明要求驾驶员保持注意并随时接管。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "系统日志摘要",
+          "content": "记录显示事发前出现一次接管提示，但提示是否被有效传达仍需核实。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "路口目击记录",
+          "content": "目击者提到当时视线受停靠车辆遮挡。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "维修检查单",
+          "content": "检查未发现明显机械损坏，但不等于排除所有软件或操作因素。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "tech",
+      "accent": "purple",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script04.md",
+      "title": "最后一笔返利",
+      "subtitle": "刷单诈骗与转账取证",
+      "category": "网络安全",
+      "difficulty": "入门",
+      "duration": 12,
+      "summary": "兼职群承诺先垫付、后返利。第三笔任务突然要求继续转账，群里的“成功案例”是真的吗？",
+      "context": "大学生周同学加入兼职群，小额任务曾收到返款。随后对方要求垫付更大金额，并以操作错误、解冻账户为由要求继续转账。请引导停止扩大损失、核实渠道、保留证据和依法求助，不把群聊中的口头承诺作为可靠保证。",
+      "roles": [
+        {
+          "name": "兼职学生",
+          "description": "从兼职学生的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "同学",
+          "description": "从同学的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "银行工作人员",
+          "description": "从银行工作人员的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "反诈咨询人员",
+          "description": "从反诈咨询人员的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "识别先付款后返利的风险信号",
+        "保存交易和沟通证据",
+        "建立核验渠道与求助意识"
+      ],
+      "learning_points": [
+        "识别先付款后返利的风险信号",
+        "保存交易和沟通证据",
+        "建立核验渠道与求助意识"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "群聊承诺",
+          "content": "群公告承诺高额返利，未提供可核验的用工主体。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "转账凭证",
+          "content": "前两笔小额转账返还，第三笔未按约返款。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "继续付款通知",
+          "content": "对方声称只有继续转账才能解冻账户。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "核验记录",
+          "content": "同学建议通过正规渠道核实身份并寻求反诈帮助。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国反电信网络诈骗法",
+          "url": "https://www.miit.gov.cn/jgsj/zfs/fl/art/2022/art_d30139b442a141f48f05775d8c0b3cee.html"
+        },
+        {
+          "title": "中华人民共和国个人信息保护法",
+          "url": "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+        }
+      ],
+      "scene": "security",
+      "accent": "amber",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script05.md",
+      "title": "被转发的朋友圈",
+      "subtitle": "个人信息与网络传播",
+      "category": "网络安全",
+      "difficulty": "进阶",
+      "duration": 16,
+      "summary": "一张朋友圈截图离开了原来的聊天范围，联系方式也被公开。你会怎样阻止传播并保全证据？",
+      "context": "小夏的朋友圈截图被他人转发至公开群，截图包含手机号和实习单位。群内出现未经核实的指责。请区分个人信息、评论与事实，讨论撤下内容、平台投诉、证据保存和合法救济，避免以再次公开对方信息作为报复。",
+      "roles": [
+        {
+          "name": "信息当事人",
+          "description": "从信息当事人的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "转发者",
+          "description": "从转发者的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "群管理员",
+          "description": "从群管理员的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "平台客服",
+          "description": "从平台客服的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "理解个人信息处理边界",
+        "辨析传播行为与证据",
+        "选择适当的停止侵害路径"
+      ],
+      "learning_points": [
+        "理解个人信息处理边界",
+        "辨析传播行为与证据",
+        "选择适当的停止侵害路径"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "原始可见范围",
+          "content": "该朋友圈原本仅向部分好友可见。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "群聊截图",
+          "content": "截图包含手机号及实习单位，但部分消息已经被撤回。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "平台举报入口",
+          "content": "平台提供涉及隐私和不实信息的投诉通道。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "沟通回复",
+          "content": "转发者表示可以删帖，但无法保证其他成员没有继续转发。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国个人信息保护法",
+          "url": "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+        },
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "security",
+      "accent": "teal",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script06.md",
+      "title": "押金去哪了",
+      "subtitle": "租赁合同与履约证据",
+      "category": "民事生活",
+      "difficulty": "入门",
+      "duration": 20,
+      "summary": "退租后，房东以清洁和设备损坏为由扣留押金。合同、照片与交接单能否还原事实？",
+      "context": "毕业生小赵按约退租，房东提出扣除全部押金。双方对清洁费用、设备原状和交接时间有争议。请核对合同约定、入住及退租影像、实际维修票据和双方沟通，不预设任何一方当然胜诉。",
+      "roles": [
+        {
+          "name": "承租人",
+          "description": "从承租人的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "出租人",
+          "description": "从出租人的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "中介",
+          "description": "从中介的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "调解员",
+          "description": "从调解员的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "阅读合同并核对履约事实",
+        "用交接材料支持主张",
+        "理性协商与依法救济"
+      ],
+      "learning_points": [
+        "阅读合同并核对履约事实",
+        "用交接材料支持主张",
+        "理性协商与依法救济"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "租赁合同",
+          "content": "合同约定押金用途，但未明确普通损耗如何认定。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "入住照片",
+          "content": "入住当日照片显示部分墙面原有污渍。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "退租交接单",
+          "content": "交接单记录钥匙已归还，但对设备状况的签字不完整。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "维修费用说明",
+          "content": "房东提供费用清单，部分支出尚无对应票据。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "home",
+      "accent": "blue",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script07.md",
+      "title": "拆封后的耳机",
+      "subtitle": "网络消费与交易记录",
+      "category": "民事生活",
+      "difficulty": "入门",
+      "duration": 12,
+      "summary": "收到的耳机与页面描述不符，商家以“已经拆封”为由拒绝处理。下一步需要核实什么？",
+      "context": "小陈在网络平台购买耳机，收到后发现型号描述和功能表现与预期不符。商家以已经拆封为由拒绝协商。请先核对购买时间、商品属性、页面承诺、实际状态和平台规则，再讨论适用的救济路径，不笼统承诺所有商品拆封后都能无条件退货。",
+      "roles": [
+        {
+          "name": "消费者",
+          "description": "从消费者的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "商家客服",
+          "description": "从商家客服的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "平台调解员",
+          "description": "从平台调解员的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "同伴",
+          "description": "从同伴的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "保存下单与商品页面凭证",
+        "区分商品属性和争议焦点",
+        "通过正规渠道进行协商"
+      ],
+      "learning_points": [
+        "保存下单与商品页面凭证",
+        "区分商品属性和争议焦点",
+        "通过正规渠道进行协商"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "订单记录",
+          "content": "订单显示交易时间、商品规格及商家身份。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "页面承诺截图",
+          "content": "购买时页面展示了特定功能说明。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "开箱记录",
+          "content": "记录显示外包装完整，实际产品标识与页面存在一处差异。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "平台工单",
+          "content": "平台要求提交订单、图片和沟通记录以处理争议。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "home",
+      "accent": "purple",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script08.md",
+      "title": "群聊里的募捐链接",
+      "subtitle": "网络募捐核验与风险防范",
+      "category": "网络安全",
+      "difficulty": "进阶",
+      "duration": 16,
+      "summary": "熟人转来的紧急募捐链接催促立刻付款。如何在善意与核验之间作出选择？",
+      "context": "班级群出现为患病儿童募捐的链接，发布者称必须马上付款。收款账户却是陌生个人，页面的机构名称无法直接核验。请引导核验主体、避免随意扩散个人病历、保留沟通证据，并选择正规渠道，不把未经证实的信息直接认定为诈骗。",
+      "roles": [
+        {
+          "name": "群成员",
+          "description": "从群成员的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "链接转发者",
+          "description": "从链接转发者的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "群管理员",
+          "description": "从群管理员的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "公益机构咨询员",
+          "description": "从公益机构咨询员的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "识别未经核验的紧急催付",
+        "核查收款主体与信息来源",
+        "兼顾公益善意与隐私保护"
+      ],
+      "learning_points": [
+        "识别未经核验的紧急催付",
+        "核查收款主体与信息来源",
+        "兼顾公益善意与隐私保护"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "链接页面",
+          "content": "页面缺少清晰机构信息，仅提供个人收款码。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "转发说明",
+          "content": "转发者表示自己也是从其他群看到的。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "收款信息",
+          "content": "收款户名与页面中的家庭姓名不同，原因尚待核实。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "机构核验答复",
+          "content": "正规机构建议通过其公开渠道核查项目。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国反电信网络诈骗法",
+          "url": "https://www.miit.gov.cn/jgsj/zfs/fl/art/2022/art_d30139b442a141f48f05775d8c0b3cee.html"
+        },
+        {
+          "title": "中华人民共和国个人信息保护法",
+          "url": "https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm"
+        }
+      ],
+      "scene": "security",
+      "accent": "amber",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script09.md",
+      "title": "试用期里的约定",
+      "subtitle": "实习兼职与合同意识",
+      "category": "民事生活",
+      "difficulty": "进阶",
+      "duration": 20,
+      "summary": "口头约定与书面条款并不一致，工资结算出现争议。你需要怎样整理自己的主张？",
+      "context": "学生小许在一家工作室兼职，书面协议写有培训和服务条款，实际工作却按排班进行。结算时双方对报酬、出勤和费用扣除产生分歧。请核实协议内容与实际履行情况，注意实习、劳务与劳动关系不能仅凭名称判断。",
+      "roles": [
+        {
+          "name": "兼职学生",
+          "description": "从兼职学生的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "工作室负责人",
+          "description": "从工作室负责人的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "见证同学",
+          "description": "从见证同学的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "咨询员",
+          "description": "从咨询员的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "区分约定名称与实际履行",
+        "整理出勤和报酬凭证",
+        "寻找适当的咨询与救济渠道"
+      ],
+      "learning_points": [
+        "区分约定名称与实际履行",
+        "整理出勤和报酬凭证",
+        "寻找适当的咨询与救济渠道"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "书面协议",
+          "content": "协议约定了任务和报酬，但对扣款条件表述不清。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "排班与交付记录",
+          "content": "记录反映实际出勤、工作安排和成果交付。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "报酬沟通",
+          "content": "聊天中对方曾确认过一项结算标准。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "结算单",
+          "content": "结算单列出多项扣除，部分尚缺少说明。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "home",
+      "accent": "teal",
+      "fictional": true,
+      "reviewed": false
+    },
+    {
+      "id": "Script10.md",
+      "title": "转账备注里的误会",
+      "subtitle": "同学借款与证据表达",
+      "category": "校园保护",
+      "difficulty": "入门",
+      "duration": 12,
+      "summary": "一笔没有备注的转账，被分别解释为借款与共同消费。你会如何重建约定的过程？",
+      "context": "两位同学因一笔转账发生争议。一方认为是借款，另一方认为是共同活动费用。双方的聊天片段和转账时间不能单独说明全部事实。请围绕形成约定、资金用途、后续行为和证人陈述进行推理，避免传播指责性个人信息。",
+      "roles": [
+        {
+          "name": "转账同学",
+          "description": "从转账同学的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "收款同学",
+          "description": "从收款同学的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "共同朋友",
+          "description": "从共同朋友的视角核对事实、表达立场并作出选择。"
+        },
+        {
+          "name": "调解员",
+          "description": "从调解员的视角核对事实、表达立场并作出选择。"
+        }
+      ],
+      "goals": [
+        "围绕争议事实组织证据",
+        "区分转账事实与法律关系",
+        "通过合理沟通表达主张"
+      ],
+      "learning_points": [
+        "围绕争议事实组织证据",
+        "区分转账事实与法律关系",
+        "通过合理沟通表达主张"
+      ],
+      "evidence": [
+        {
+          "id": "e1",
+          "title": "转账记录",
+          "content": "记录证实转账发生，但没有备注用途。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e2",
+          "title": "聊天上下文",
+          "content": "片段中提到活动费用和临时周转，需结合完整对话理解。",
+          "unlock_turn": 0
+        },
+        {
+          "id": "e3",
+          "title": "活动开支单",
+          "content": "开支单记载了部分共同费用，金额与转账不完全相同。",
+          "unlock_turn": 1
+        },
+        {
+          "id": "e4",
+          "title": "后续消息",
+          "content": "一方在事后提到归还安排，另一方未明确回应。",
+          "unlock_turn": 2
+        }
+      ],
+      "legal_references": [
+        {
+          "title": "中华人民共和国民法典",
+          "url": "https://www.moj.gov.cn/pub/sfbgw/zwgkztzl/2025nianzhuanti/2025mfdxcy/2025mfdxcy_mfdql/202505/t20250507_518708.html"
+        }
+      ],
+      "scene": "school",
+      "accent": "blue",
+      "fictional": true,
+      "reviewed": false
+    }
+  ]
+}

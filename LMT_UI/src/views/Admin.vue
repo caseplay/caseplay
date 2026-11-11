@@ -1,171 +1,182 @@
 <template>
-  <div class="admin-page">
-    <div class="header">
-      <h2>后台管理系统</h2>
-      <p>管理用户账号、游玩限制与设置</p>
-    </div>
-
-    <div class="glass-panel table-container">
-      <el-table :data="users" style="width: 100%" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="email" label="邮箱" />
-        <el-table-column label="账号类型" width="120">
-          <template #default="scope">
-            <el-tag :type="scope.row.is_admin ? 'danger' : 'success'">
-              {{ scope.row.is_admin ? '管理员' : '普通用户' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="remaining_plays" label="剩余次数" width="120">
-          <template #default="scope">
-            <strong>{{ scope.row.remaining_plays }}</strong>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
-          <template #default="scope">
-            <el-button size="small" type="primary" @click="openEditDialog(scope.row)">管理</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
-
-    <el-dialog v-model="dialogVisible" title="管理用户" width="400px">
-      <div v-if="editingUser">
-        <el-form label-position="top">
-          <el-form-item label="剩余次数">
-            <el-input-number v-model="editForm.remaining_plays" :min="0" :max="1000" />
-          </el-form-item>
-          <el-form-item label="新密码 (可选)">
-            <el-input v-model="editForm.password" type="password" placeholder="若不修改请留空" />
-          </el-form-item>
-        </el-form>
+  <div class="page">
+    <header class="page-top">
+      <div>
+        <span class="eyebrow">CONTENT STUDIO</span>
+        <h1>内容工作台</h1>
+        <p class="muted">AI 起草、人工审校，让教学情境有据可依。</p>
       </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveUser" :loading="saving">保存</el-button>
-        </span>
-      </template>
-    </el-dialog>
+    </header>
+    <p v-if="error" class="error-banner">{{ error }}</p>
+    <section class="panel">
+      <h2>创建新的教学剧本</h2>
+      <form @submit.prevent="generate">
+        <div class="filter-tools">
+          <select v-model="category" aria-label="草稿分类">
+            <option v-for="c in categories" :key="c">{{ c }}</option></select
+          ><input
+            v-model="topic"
+            placeholder="输入教学主题、冲突与学习目标（至少4字）"
+            minlength="4"
+            maxlength="300"
+            required
+          /><button class="primary-button" :disabled="busy">
+            {{ busy ? "正在起草…" : "AI 生成草稿" }}
+          </button>
+        </div>
+      </form>
+      <p class="muted small">
+        生成内容默认不进入剧本库，需人工核对事实、法理、角色与线索后发布。
+      </p>
+    </section>
+    <div class="admin-layout">
+      <section class="panel">
+        <h2>草稿与发布记录</h2>
+        <button
+          class="draft-item"
+          v-for="d in drafts"
+          :key="d.id"
+          @click="choose(d)"
+        >
+          <b>{{ d.payload.title }}</b
+          ><span class="tag">{{
+            d.status === "published" ? "已审校发布" : "待审校"
+          }}</span>
+        </button>
+        <p class="muted" v-if="!drafts.length">尚无草稿，先创建一个主题。</p>
+      </section>
+      <section class="panel" v-if="selected">
+        <h2>{{ selected.payload.title }}</h2>
+        <p class="muted small">
+          可编辑结构化内容，包含角色、证据解锁顺序与官方法规链接。
+        </p>
+        <textarea
+          v-model="editor"
+          rows="18"
+          aria-label="剧本草稿内容"
+          :disabled="selected.status === 'published'"
+          spellcheck="false"
+        ></textarea
+        ><template v-if="selected.status !== 'published'"
+          ><button class="secondary-button" @click="saveDraft" :disabled="busy">
+            保存草稿修改</button
+          ><label class="field-label"
+            >人工审校意见<textarea
+              v-model="note"
+              rows="3"
+              minlength="8"
+              placeholder="记录法理核验、线索一致性与教学适用性检查（至少8字）"
+            ></textarea></label
+          ><button
+            class="primary-button"
+            @click="publish"
+            :disabled="busy || note.trim().length < 8"
+          >
+            确认审校并发布到剧本库
+          </button></template
+        >
+        <p v-else class="success-banner">{{ selected.review_note }}</p>
+      </section>
+    </div>
+    <section class="panel">
+      <h2>学习者使用额度</h2>
+      <div class="user-row" v-for="u in users" :key="u.id">
+        <span
+          >{{ u.display_name }}<small>{{ u.email }}</small></span
+        ><label
+          >剩余次数
+          <input
+            type="number"
+            v-model.number="u.remaining_plays"
+            min="0"
+            max="10000" /></label
+        ><button class="secondary-button" @click="saveUser(u)">保存额度</button>
+      </div>
+    </section>
+    <p class="success-banner" v-if="message" role="status">{{ message }}</p>
   </div>
 </template>
-
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import axios from 'axios'
-import { ElMessage } from 'element-plus'
-
-const router = useRouter()
-const users = ref([])
-const loading = ref(true)
-const dialogVisible = ref(false)
-const editingUser = ref(null)
-const saving = ref(false)
-
-const editForm = ref({
-  remaining_plays: 0,
-  password: ''
-})
-
-const API_BASE = (import.meta.env.VITE_API_BASE || '/api')
-
-const fetchUsers = async () => {
-  const token = localStorage.getItem('token')
-  if (!token) return router.push('/login')
-
-  loading.value = true
+import { ref, onMounted } from "vue";
+import { api } from "../lib/api";
+const categories = ["校园保护", "网络安全", "民事生活", "科技社会"],
+  category = ref("校园保护"),
+  topic = ref(""),
+  drafts = ref([]),
+  users = ref([]),
+  selected = ref(null),
+  editor = ref(""),
+  note = ref(""),
+  busy = ref(false),
+  error = ref(""),
+  message = ref("");
+async function load() {
+  [drafts.value, users.value] = await Promise.all([
+    api("/admin/drafts"),
+    api("/admin/users"),
+  ]);
+}
+function choose(d) {
+  selected.value = d;
+  editor.value = JSON.stringify(d.payload, null, 2);
+  note.value = d.review_note || "";
+}
+async function perform(fn) {
+  busy.value = true;
+  error.value = "";
+  message.value = "";
   try {
-    const res = await axios.get(`${API_BASE}/admin/users?token=${token}`)
-    users.value = res.data
-  } catch (err) {
-    ElMessage.error(err.response?.data?.error || "用户列表获取失败，需要管理员权限。")
-    if (err.response?.status === 403 || err.response?.status === 401) {
-      router.push('/')
-    }
+    await fn();
+  } catch (e) {
+    error.value = e.message;
   } finally {
-    loading.value = false
+    busy.value = false;
   }
 }
-
-onMounted(() => {
-  fetchUsers()
-})
-
-const openEditDialog = (user) => {
-  editingUser.value = user
-  editForm.value = {
-    remaining_plays: user.remaining_plays,
-    password: ''
-  }
-  dialogVisible.value = true
+async function generate() {
+  await perform(async () => {
+    const d = await api("/admin/drafts/generate", {
+      method: "POST",
+      body: { topic: topic.value, category: category.value },
+    });
+    await load();
+    choose(d);
+  });
 }
-
-const saveUser = async () => {
-  const token = localStorage.getItem('token')
-  saving.value = true
-  try {
-    const payload = {
-      token,
-      remaining_plays: editForm.value.remaining_plays
-    }
-    if (editForm.value.password) {
-      payload.password = editForm.value.password
-    }
-
-    await axios.put(`${API_BASE}/admin/users/${editingUser.value.id}`, payload)
-    ElMessage.success("用户资料更新成功")
-    dialogVisible.value = false
-    await fetchUsers()
-  } catch (err) {
-    ElMessage.error(err.response?.data?.error || "用户更新失败")
-  } finally {
-    saving.value = false
-  }
+async function saveDraft() {
+  await perform(async () => {
+    const d = await api("/admin/drafts/" + selected.value.id, {
+      method: "PUT",
+      body: { payload: JSON.parse(editor.value) },
+    });
+    await load();
+    choose(d);
+    message.value = "草稿已保存";
+  });
 }
+async function publish() {
+  await perform(async () => {
+    await api("/admin/drafts/" + selected.value.id, {
+      method: "PUT",
+      body: { payload: JSON.parse(editor.value) },
+    });
+    const d = await api("/admin/drafts/" + selected.value.id + "/publish", {
+      method: "POST",
+      body: { review_note: note.value },
+    });
+    await load();
+    choose(d);
+    message.value = "剧本已发布";
+  });
+}
+async function saveUser(u) {
+  await perform(async () => {
+    await api("/admin/users/" + u.id, {
+      method: "PUT",
+      body: { remaining_plays: u.remaining_plays },
+    });
+    message.value = "额度已更新";
+  });
+}
+onMounted(() => perform(load));
 </script>
-
-<style scoped>
-.admin-page {
-  padding: 4rem 2rem;
-  max-width: 1000px;
-  margin: 0 auto;
-}
-.header {
-  margin-bottom: 2rem;
-}
-.header h2 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #f8fafc, #94a3b8);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.header p {
-  color: var(--text-muted);
-}
-.table-container {
-  padding: 2rem;
-}
-/* Override Element Plus dark theme variables here if needed */
-:global(.el-table) {
-  --el-table-bg-color: transparent !important;
-  --el-table-tr-bg-color: transparent !important;
-  --el-table-header-bg-color: rgba(255,255,255,0.05) !important;
-  --el-table-border: 1px solid rgba(255,255,255,0.1) !important;
-  --el-table-text-color: var(--text-main) !important;
-  --el-table-header-text-color: var(--text-main) !important;
-}
-:global(.el-dialog) {
-  background-color: var(--panel-bg);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(10px);
-}
-:global(.el-dialog__title) {
-  color: white;
-}
-:global(.el-form-item__label) {
-  color: #ccc;
-}
-</style>

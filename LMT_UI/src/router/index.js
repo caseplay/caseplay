@@ -1,36 +1,67 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import Home from '../views/Home.vue'
-import Login from '../views/Login.vue'
-import ScriptDetail from '../views/ScriptDetail.vue'
-import Gameplay from '../views/Gameplay.vue'
-import Report from '../views/Report.vue'
-
-import Profile from '../views/Profile.vue'
-import Admin from '../views/Admin.vue'
-
-const routes = [
-  { path: '/', name: 'Home', component: Home, alias: '/home' },
-  { path: '/login', name: 'Login', component: Login },
-  { path: '/script/:id', name: 'ScriptDetail', component: ScriptDetail },
-  { path: '/play/:session_id', name: 'Gameplay', component: Gameplay },
-  { path: '/report/:session_id', name: 'Report', component: Report },
-  { path: '/profile', name: 'Profile', component: Profile },
-  { path: '/admin', name: 'Admin', component: Admin }
-]
-
+import { createRouter, createWebHistory } from "vue-router";
+import { account, loadAccount } from "../lib/api";
 const router = createRouter({
   history: createWebHistory(),
-  routes
-})
-
-// Simple route guard
-router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token')
-  if (to.name !== 'Login' && !token) {
-    next({ name: 'Login' })
-  } else {
-    next()
+  routes: [
+    {
+      path: "/",
+      component: () => import("../views/Home.vue"),
+      alias: "/home",
+      name: "Home",
+    },
+    {
+      path: "/login",
+      component: () => import("../views/Login.vue"),
+      name: "Login",
+      meta: { public: true },
+    },
+    {
+      path: "/register",
+      component: () => import("../views/Login.vue"),
+      name: "Register",
+      meta: { public: true },
+    },
+    {
+      path: "/script/:id",
+      component: () => import("../views/ScriptDetail.vue"),
+      name: "ScriptDetail",
+    },
+    {
+      path: "/play/:session_id",
+      component: () => import("../views/Gameplay.vue"),
+      name: "Gameplay",
+    },
+    {
+      path: "/report/:session_id",
+      component: () => import("../views/Report.vue"),
+      name: "Report",
+    },
+    {
+      path: "/profile",
+      component: () => import("../views/Profile.vue"),
+      name: "Profile",
+    },
+    {
+      path: "/history",
+      component: () => import("../views/History.vue"),
+      name: "History",
+    },
+    {
+      path: "/admin",
+      component: () => import("../views/Admin.vue"),
+      name: "Admin",
+    },
+  ],
+});
+router.beforeEach(async (to) => {
+  if (to.meta.public) return true;
+  if (!account.token) return "/login";
+  try {
+    await loadAccount();
+    if (to.name === "Admin" && !account.user?.is_admin) return "/";
+  } catch (_) {
+    return "/login";
   }
-})
-
-export default router
+  return true;
+});
+export default router;

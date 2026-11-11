@@ -1,361 +1,289 @@
 <template>
-  <div class="gameplay-page">
-    <div class="game-container glass-panel">
-      <div class="scene-display" ref="sceneDisplayRef">
-        <transition-group name="scene-anim" tag="div" class="history-list">
-          <div v-for="(item, index) in history" :key="index" class="history-item" :class="item.role">
-            <div class="avatar">{{ item.role === 'ai' ? '🎭' : '👤' }}</div>
-            <div class="content">
-              <!-- If User -->
-              <div v-if="item.role === 'user'">{{ item.content }}</div>
-
-              <!-- If AI -->
-              <div v-else>
-                <div class="narrator" v-if="item.content.narrator_text">
-                  <i>{{ item.content.narrator_text }}</i>
-                </div>
-
-                <div v-if="item.content.npc_dialogues && item.content.npc_dialogues.length" class="npc-dialogues">
-                  <div class="npc-line" v-for="(npc, idx) in item.content.npc_dialogues" :key="idx">
-                    <strong>{{ npc.name }}:</strong> {{ npc.text }}
-                  </div>
-                </div>
-              </div>
+  <div class="page play-page" v-if="session">
+    <header class="play-heading">
+      <div>
+        <RouterLink to="/history" class="back-link"
+          ><ArrowLeft />我的演绎</RouterLink
+        >
+        <h1>{{ session.script_title }}</h1>
+        <div class="play-meta">
+          <span>当前角色：{{ session.character_name }}</span
+          ><span>已完成 {{ session.metrics.turns }} 轮行动</span
+          ><span class="save-state">自动保存</span>
+        </div>
+      </div>
+      <button
+        v-if="session.status === 'ongoing'"
+        class="secondary-button"
+        @click="finishOpen = true"
+        :disabled="busy"
+      >
+        结束并复盘</button
+      ><RouterLink v-else class="primary-button" :to="'/report/' + session.id"
+        >查看学习报告<ArrowRight
+      /></RouterLink>
+    </header>
+    <div class="play-layout">
+      <section class="play-main">
+        <StoryStage
+          :roles="session.script.roles"
+          :dialogues="currentScene.npc_dialogues || []"
+          :narrator="currentScene.narrator_text"
+          :scene-type="session.script.scene || 'school'"
+          @select-role="target = $event"
+        />
+        <div class="dialogue-journal">
+          <div class="journal-heading">
+            <h3><ChatDotRound />剧情与对话</h3>
+            <button @click="showHistory = !showHistory">
+              {{ showHistory ? "只看当前幕" : "查看完整对话" }}
+            </button>
+          </div>
+          <div class="journal-body" ref="journal">
+            <article
+              v-for="(item, i) in displayedHistory"
+              :key="i"
+              :class="['conversation-entry', item.role]"
+            >
+              <template v-if="item.role === 'user'"
+                ><span class="entry-label"
+                  >我的行动
+                  <small v-if="item.target">对 {{ item.target }}</small></span
+                >
+                <p>{{ item.content }}</p>
+                <small v-if="item.evidence_ids?.length"
+                  >已呈递 {{ item.evidence_ids.length }} 条线索</small
+                ></template
+              ><template v-else
+                ><span class="entry-label">情境旁白</span>
+                <p class="narration">{{ item.content.narrator_text }}</p>
+                <div
+                  v-for="(npc, j) in item.content.npc_dialogues"
+                  :key="j"
+                  class="npc-line"
+                >
+                  <b>{{ npc.name }}</b
+                  ><span>{{ npc.text }}</span>
+                </div></template
+              >
+            </article>
+            <div v-if="busy" class="thinking">
+              <span></span>AI 角色正在思考你的行动…
             </div>
           </div>
-        </transition-group>
-        <div v-if="isLoading" class="typing-indicator">
-          <span>.</span><span>.</span><span>.</span>
         </div>
-      </div>
-
-      <div class="interaction-area" v-if="!isLoading && !isEnded">
-        <h3>你打算怎么做？</h3>
-
-        <div class="choices-grid" v-if="currentChoices.length">
-          <button
-            v-for="(choice, idx) in currentChoices"
-            :key="idx"
-            class="choice-btn"
-            @click="submitAction(choice)"
+        <section v-if="session.status === 'ongoing'" class="action-panel">
+          <h3>下一步，你会怎么做？</h3>
+          <div class="choice-grid">
+            <button
+              v-for="choice in currentScene.choices || []"
+              :key="choice"
+              :disabled="busy"
+              @click="act(choice, 'choice')"
+            >
+              {{ choice }}<ArrowRight />
+            </button>
+          </div>
+          <form @submit.prevent="act(manual, 'custom')">
+            <label class="target-select"
+              >对话对象<select v-model="target" aria-label="选择对话对象">
+                <option value="">由主持人安排</option>
+                <option
+                  v-for="role in session.script.roles.filter(
+                    (r) => r.name !== session.character_name,
+                  )"
+                  :key="role.name"
+                >
+                  {{ role.name }}
+                </option>
+              </select></label
+            ><textarea
+              v-model="manual"
+              placeholder="输入你的提问、判断或行动，可同时呈递右侧已解锁的线索…"
+              maxlength="1500"
+              :disabled="busy"
+              rows="2"
+              aria-label="自定义行动"
+            ></textarea>
+            <div class="action-footer">
+              <span>{{
+                evidenceIds.length
+                  ? `本轮将呈递 ${evidenceIds.length} 条线索`
+                  : "有依据的提问，会让推理更进一步。"
+              }}</span
+              ><button
+                class="primary-button"
+                :disabled="busy || !manual.trim()"
+              >
+                发送行动<Promotion />
+              </button>
+            </div>
+          </form>
+        </section>
+        <div v-else class="completion-panel">
+          <CircleCheckFilled />
+          <div>
+            <h3>故事暂告一段落，思考仍在继续。</h3>
+            <p>你的选择、证据与判断路径已保存，前往报告复盘本次经历。</p>
+          </div>
+          <RouterLink :to="'/report/' + session.id" class="primary-button"
+            >打开学习报告<ArrowRight
+          /></RouterLink>
+        </div>
+        <p v-if="error" class="error-banner" role="alert">{{ error }}</p>
+      </section>
+      <aside class="evidence-panel">
+        <div class="evidence-heading">
+          <div>
+            <span class="eyebrow">CASE NOTES</span>
+            <h3>证据与线索板</h3>
+          </div>
+          <span
+            >{{ session.evidence.length }}/{{
+              session.script.evidence_count || 4
+            }}</span
           >
-            {{ choice }}
+        </div>
+        <p class="muted small">选择已解锁的线索，可随下一次行动呈递给角色。</p>
+        <label
+          v-for="evidence in session.evidence"
+          :key="evidence.id"
+          class="evidence-card"
+          :class="{
+            selected: evidenceIds.includes(evidence.id),
+            used: session.evidence_used.includes(evidence.id),
+          }"
+          ><input
+            type="checkbox"
+            v-model="evidenceIds"
+            :value="evidence.id"
+            :disabled="busy || session.status !== 'ongoing'"
+          />
+          <div>
+            <span class="evidence-type"
+              ><Document />线索 {{ evidence.id.toUpperCase()
+              }}<i v-if="session.evidence_used.includes(evidence.id)"
+                >已使用</i
+              ></span
+            >
+            <h4>{{ evidence.title }}</h4>
+            <p>{{ evidence.content }}</p>
+          </div></label
+        >
+        <div
+          class="locked-evidence"
+          v-if="session.evidence.length < (session.script.evidence_count || 4)"
+        >
+          <Lock />更多线索会随推理推进解锁
+        </div>
+        <h4 class="evidence-subheading">本次学习目标</h4>
+        <ul class="mini-goals">
+          <li v-for="goal in session.script.goals" :key="goal">{{ goal }}</li>
+        </ul>
+      </aside>
+    </div>
+    <div
+      v-if="finishOpen"
+      class="modal-backdrop"
+      @click.self="finishOpen = false"
+    >
+      <section class="modal-panel">
+        <span class="eyebrow">TIME TO REFLECT</span>
+        <h2>准备结束本次演绎？</h2>
+        <p>
+          系统将结合已经发生的对话与行动生成结局和法理反馈。你也可以继续收集线索。
+        </p>
+        <div class="modal-actions">
+          <button class="secondary-button" @click="finishOpen = false">
+            继续探索</button
+          ><button class="primary-button" :disabled="busy" @click="finish">
+            结束并生成报告
           </button>
         </div>
-
-        <div class="manual-input">
-          <div class="separator" v-if="currentChoices.length"><span>或输入自定义行动</span></div>
-          <form @submit.prevent="submitManualAction" class="input-form">
-            <input
-              v-model="manualInput"
-              type="text"
-              :disabled="isApiError"
-              :placeholder="isApiError ? 'API额度不足，输入已禁用。' : '例如：我主动上前，反驳他的说法...'"
-            />
-            <button type="submit" :disabled="!manualInput.trim() || isApiError">发送</button>
-          </form>
-        </div>
-      </div>
-
-      <div class="interaction-area ended-area" v-if="isEnded">
-        <h3>剧情推演已结束</h3>
-        <p>本次演绎已结束。AI 已经生成了正式的法治教育鉴定报告。</p>
-        <div class="end-actions" style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem;">
-          <button class="choice-btn return-btn" @click="router.push('/home')">返回首页</button>
-          <button class="choice-btn primary return-btn" @click="router.push(`/report/${route.params.session_id}`)">📄 查看鉴定报告</button>
-        </div>
-      </div>
+      </section>
     </div>
   </div>
+  <div v-else class="page loading-state">
+    {{ error || "正在恢复你的故事…" }}
+  </div>
 </template>
-
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
-
-const route = useRoute()
-const router = useRouter()
-
-const history = ref([])
-const currentChoices = ref([])
-const isLoading = ref(false)
-const isEnded = ref(false)
-const isApiError = ref(false)
-const manualInput = ref('')
-const sceneDisplayRef = ref(null)
-
-const API_BASE = (import.meta.env.VITE_API_BASE || '/api')
-
-onMounted(() => {
-  const initialSceneStr = localStorage.getItem('current_scene')
-  if (initialSceneStr) {
-    const sceneInfo = JSON.parse(initialSceneStr)
-    history.value.push({ role: 'ai', content: sceneInfo })
-    currentChoices.value = sceneInfo.choices || []
-    isEnded.value = sceneInfo.is_ended || false
-    isApiError.value = sceneInfo.api_error || false
-    localStorage.removeItem('current_scene')
-  } else {
-    history.value.push({ role: 'ai', content: { narrator_text: "会话已恢复。请输入你的下一步行动以继续。" } })
-  }
-})
-
-const scrollToBottom = async () => {
-  await nextTick()
-  if (sceneDisplayRef.value) {
-    sceneDisplayRef.value.scrollTop = sceneDisplayRef.value.scrollHeight
-  }
-}
-
-const submitAction = async (actionText) => {
-  if (!actionText.trim() || isLoading.value || isEnded.value) return
-
-  history.value.push({ role: 'user', content: actionText })
-  currentChoices.value = []
-  isLoading.value = true
-  manualInput.value = ''
-  scrollToBottom()
-
+import { ref, computed, onMounted, nextTick } from "vue";
+import { useRoute } from "vue-router";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChatDotRound,
+  Promotion,
+  Document,
+  Lock,
+  CircleCheckFilled,
+} from "@element-plus/icons-vue";
+import StoryStage from "../components/StoryStage.vue";
+import { api } from "../lib/api";
+const route = useRoute(),
+  session = ref(null),
+  busy = ref(false),
+  error = ref(""),
+  manual = ref(""),
+  target = ref(""),
+  evidenceIds = ref([]),
+  showHistory = ref(false),
+  finishOpen = ref(false),
+  journal = ref(null);
+const currentScene = computed(
+  () =>
+    [...(session.value?.chat_history || [])]
+      .reverse()
+      .find((x) => x.role === "ai")?.content || {},
+);
+const displayedHistory = computed(() =>
+  showHistory.value
+    ? session.value.chat_history
+    : session.value.chat_history
+        .slice(-2)
+        .filter((x, i, arr) => arr.length === 1 || x.role === "ai" || i === 0),
+);
+onMounted(async () => {
   try {
-    const res = await axios.post(`${API_BASE}/play/action`, {
-      session_id: route.params.session_id,
-      action: actionText
-    })
-
-    const sceneInfo = res.data.scene
-    history.value.push({ role: 'ai', content: sceneInfo })
-    currentChoices.value = sceneInfo.choices || []
-    isEnded.value = sceneInfo.is_ended || false
-    isApiError.value = sceneInfo.api_error || false
-  } catch (err) {
-    console.error("Action error:", err)
-    history.value.push({ role: 'ai', content: { narrator_text: "生成下一幕时发生错误，请重试。" } })
-    currentChoices.value = ["重试"]
+    session.value = await api("/sessions/" + route.params.session_id);
+  } catch (e) {
+    error.value = e.message;
+  }
+});
+async function act(action, mode = "custom", end = false) {
+  if (busy.value || !action.trim()) return;
+  busy.value = true;
+  error.value = "";
+  try {
+    const result = await api("/play/action", {
+      method: "POST",
+      body: {
+        session_id: session.value.id,
+        action,
+        mode,
+        evidence_ids: evidenceIds.value,
+        target: target.value,
+        finish: end,
+      },
+    });
+    session.value = result.session;
+    manual.value = "";
+    evidenceIds.value = [];
+    await nextTick();
+    if (journal.value) journal.value.scrollTop = journal.value.scrollHeight;
+  } catch (e) {
+    error.value = e.message;
   } finally {
-    isLoading.value = false
-    scrollToBottom()
+    busy.value = false;
   }
 }
-
-const submitManualAction = () => {
-  submitAction(manualInput.value)
+async function finish() {
+  finishOpen.value = false;
+  await act(
+    "我已完成本轮事实梳理和求助安排，现在结束演绎。请结合我的实际行动总结结局，并生成法理反馈和学习建议。",
+    "custom",
+    true,
+  );
 }
 </script>
-
-<style scoped>
-.gameplay-page {
-  padding: 2rem;
-  height: calc(100vh - 65px);
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.game-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  overflow: hidden;
-}
-
-.scene-display {
-  flex: 1;
-  overflow-y: auto;
-  padding: 2rem;
-  scroll-behavior: smooth;
-}
-
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.history-item {
-  display: flex;
-  gap: 1rem;
-  max-width: 85%;
-}
-
-.history-item.ai {
-  align-self: flex-start;
-}
-
-.history-item.user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
-}
-
-.avatar {
-  font-size: 2rem;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.content {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 1rem 1.5rem;
-  border-radius: 16px;
-  line-height: 1.6;
-  font-size: 1.1rem;
-  white-space: pre-wrap;
-}
-
-.history-item.ai .content {
-  border-top-left-radius: 4px;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.history-item.user .content {
-  border-top-right-radius: 4px;
-  background: rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.narrator {
-  color: var(--text-muted);
-  margin-bottom: 0.8rem;
-  padding-bottom: 0.8rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.npc-dialogues {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.npc-line {
-  margin-bottom: 0.5rem;
-}
-.npc-line strong {
-  color: #c084fc;
-}
-
-.end-report {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: rgba(139, 92, 246, 0.2);
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: 8px;
-}
-.end-report h4 {
-  color: #f8fafc;
-  margin-bottom: 0.5rem;
-}
-
-.interaction-area {
-  padding: 2rem;
-  background: rgba(15, 23, 42, 0.9);
-  border-top: 1px solid var(--border);
-}
-
-.interaction-area h3 {
-  margin-bottom: 1rem;
-  color: var(--text-muted);
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.choices-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.8rem;
-  margin-bottom: 1.5rem;
-}
-
-.choice-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  text-align: left;
-  padding: 1rem;
-  font-size: 1rem;
-  transition: all 0.2s;
-  border-radius: 8px;
-}
-
-.choice-btn:hover {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: var(--primary);
-  transform: translateX(5px);
-}
-
-.return-btn {
-  text-align: center;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  border: none;
-  font-weight: bold;
-}
-.return-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-}
-
-.separator {
-  position: relative;
-  text-align: center;
-  margin: 1.5rem 0;
-}
-.separator::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  border-top: 1px dashed var(--border);
-  z-index: 0;
-}
-.separator span {
-  background: #0f172a;
-  padding: 0 1rem;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  position: relative;
-  z-index: 1;
-}
-
-.input-form {
-  display: flex;
-  gap: 1rem;
-}
-.input-form input {
-  margin-bottom: 0;
-}
-
-.scene-anim-enter-active,
-.scene-anim-leave-active {
-  transition: all 0.4s ease;
-}
-.scene-anim-enter-from {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.typing-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 1rem;
-  font-size: 2rem;
-  color: var(--primary);
-}
-.typing-indicator span {
-  animation: bounce 1.4s infinite ease-in-out both;
-}
-.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-
-@keyframes bounce {
-  0%, 80%, 100% { transform: scale(0); }
-  40% { transform: scale(1); }
-}
-</style>

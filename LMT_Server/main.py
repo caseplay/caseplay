@@ -1,341 +1,445 @@
-import os
-import random
+"""Caseplay: authenticated, evidence-aware interactive legal education."""
 import hashlib
-from flask import Flask, request, jsonify
+import hmac
+import json
+import os
+import re
+import secrets
+from collections import defaultdict
+from datetime import timedelta
+from functools import wraps
+from pathlib import Path
+from threading import Lock
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[1] / '.env')
+from flask import Flask, g, request, jsonify, Response
 from flask_cors import CORS
+from sqlalchemy import select, update, delete, func, or_
+from sqlalchemy.exc import IntegrityError
+from werkzeug.security import generate_password_hash, check_password_hash
+from storage import make_storage, initialize, User, LoginToken, PlaySession, Favorite, ScriptDraft, now
+from catalog import scripts, find_script, validate_script, legal_sources, CATEGORIES
+from utils.ai import generate_scene, generate_script, AIError
 
-from utils.db import get_db_connection
-from utils.mail import send_verification_code
-from utils.ai import generate_scene
+EMAIL = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
 
-app = Flask(__name__)
-CORS(app)
 
-VERIFICATION_CODES = {}
+def iso(value):
+    return value.isoformat() + 'Z' if value else None
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
 
-@app.route('/api/auth/send_code', methods=['POST'])
-def send_code():
-    data = request.json
-    email = data.get('email')
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
+def create_app(testing=False):
+    app = Flask(__name__)
+    app.config.update(TESTING=testing, MAX_CONTENT_LENGTH=1024*1024)
+    origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')
+    CORS(app, resources={r'/api/*': {'origins': origins}})
+    engine, factory = make_storage()
+    initialize(engine)
+    app.config.update(DB_FACTORY=factory, DB_ENGINE=engine)
+    login_attempts = defaultdict(list)
+    rate_lock = Lock()
 
-    conn = get_db_connection()
-    user_exists = False
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE email=%s", (email,))
-            user_exists = bool(cursor.fetchone())
-    finally:
-        conn.close()
+    @app.before_request
+    def db_open():
+        g.db = factory()
 
-    code = f"{random.randint(100000, 999999)}"
-    VERIFICATION_CODES[email] = code
-    send_verification_code(email, code)
-    return jsonify({"message": "Verification code sent", "user_exists": user_exists}), 200
+    @app.teardown_request
+    def db_close(_):
+        if 'db' in g:
+            g.db.rollback()
+            g.db.close()
 
-@app.route('/api/auth/register', methods=['POST'])
-def register():
-    data = request.json
-    email = data.get('email')
-    code = data.get('code')
-    password = data.get('password')
+    @app.after_request
+    def headers(response):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Cache-Control'] = 'no-store' if request.path.startswith('/api/auth') else 'private, no-cache'
+        return response
 
-    if not all([email, code, password]):
-        return jsonify({"error": "Missing fields"}), 400
+    @app.errorhandler(ValueError)
+    def invalid(error):
+        return jsonify(error=str(error)), 400
 
-    if VERIFICATION_CODES.get(email) != code:
-        return jsonify({"error": "Invalid or expired verification code"}), 400
+    @app.errorhandler(AIError)
+    def model_error(error):
+        return jsonify(error=str(error), retryable=True), 502
 
-    del VERIFICATION_CODES[email]
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id FROM users WHERE email=%s", (email,))
-            if cursor.fetchone():
-                hashed = hash_password(password)
-                cursor.execute("UPDATE users SET password_hash=%s WHERE email=%s", (hashed, email))
-                conn.commit()
-                return jsonify({"message": "Password updated successfully", "is_update": True}), 200
-
-            hashed = hash_password(password)
-            cursor.execute("INSERT INTO users (email, password_hash, remaining_plays, is_admin) VALUES (%s, %s, 1, FALSE)", (email, hashed))
-        conn.commit()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"message": "User registered successfully"}), 201
-
-@app.route('/api/auth/login', methods=['POST'])
-def login():
-    data = request.json
-    email = data.get('email')
-    password = data.get('password')
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            hashed = hash_password(password)
-            cursor.execute("SELECT id, email FROM users WHERE email=%s AND password_hash=%s", (email, hashed))
-            user = cursor.fetchone()
+    def auth(fn):
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            token = request.headers.get('Authorization', '').removeprefix('Bearer ').strip()
+            if not token:
+                return jsonify(error='请先登录'), 401
+            hashed = hashlib.sha256(token.encode()).hexdigest()
+            login = g.db.get(LoginToken, hashed)
+            if not login or login.expires_at <= now():
+                return jsonify(error='登录已失效，请重新登录'), 401
+            user = g.db.get(User, login.user_id)
             if not user:
-                return jsonify({"error": "Invalid credentials"}), 401
+                return jsonify(error='账号不存在'), 401
+            g.user, g.token = user, login
+            return fn(*args, **kwargs)
+        return wrapped
 
-            token = str(user['id'])
-            return jsonify({"token": token, "email": user['email']}), 200
-    finally:
-        conn.close()
+    def admin(fn):
+        @auth
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            if not g.user.is_admin:
+                return jsonify(error='需要内容管理员权限'), 403
+            return fn(*args, **kwargs)
+        return wrapped
 
-@app.route('/api/auth/me', methods=['GET'])
-def get_user_info():
-    token = request.args.get('token')
-    if not token:
-        return jsonify({"error": "Token is required"}), 400
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT email, remaining_plays, is_admin FROM users WHERE id=%s", (token,))
-            user = cursor.fetchone()
-            if not user:
-                return jsonify({"error": "User not found"}), 404
-            return jsonify({
-                "email": user["email"],
-                "remaining_plays": user["remaining_plays"],
-                "is_admin": bool(user["is_admin"])
-            }), 200
-    finally:
-        conn.close()
+    def body():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            raise ValueError('请求需要有效的 JSON 数据')
+        return data
 
-@app.route('/api/admin/users', methods=['GET'])
-def get_all_users():
-    token = request.args.get('token')
-    if not token:
-        return jsonify({"error": "Unauthorized"}), 401
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT is_admin FROM users WHERE id=%s", (token,))
-            admin_check = cursor.fetchone()
-            if not admin_check or not admin_check['is_admin']:
-                return jsonify({"error": "Forbidden"}), 403
+    def public_user(user):
+        return {'id': user.id, 'email': user.email, 'display_name': user.display_name, 'is_admin': user.is_admin, 'remaining_plays': user.remaining_plays, 'created_at': iso(user.created_at)}
 
-            cursor.execute("SELECT id, email, remaining_plays, is_admin, created_at FROM users")
-            users = cursor.fetchall()
-            return jsonify(users), 200
-    finally:
-        conn.close()
+    def issue_token(user):
+        raw = secrets.token_urlsafe(40)
+        g.db.add(LoginToken(token_hash=hashlib.sha256(raw.encode()).hexdigest(), user_id=user.id, expires_at=now()+timedelta(days=7)))
+        user.last_login = now()
+        g.db.commit()
+        return {'token': raw, 'user': public_user(user)}
 
-@app.route('/api/admin/users/<int:user_id>', methods=['PUT'])
-def admin_update_user(user_id):
-    token = request.json.get('token')
-    if not token:
-        return jsonify({"error": "Unauthorized"}), 401
+    def owned_session(sid):
+        session = g.db.get(PlaySession, sid)
+        if session is None or session.user_id != g.user.id:
+            return None
+        return session
 
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT is_admin FROM users WHERE id=%s", (token,))
-            admin_check = cursor.fetchone()
-            if not admin_check or not admin_check['is_admin']:
-                return jsonify({"error": "Forbidden"}), 403
+    def turns(session):
+        return sum(1 for e in (session.events or []) if e.get('type') == 'action')
 
-            plays = request.json.get('remaining_plays')
-            new_password = request.json.get('password')
+    def visible_evidence(script, turn):
+        return [e for e in script.get('evidence', []) if e.get('unlock_turn', 0) <= turn]
 
-            if plays is not None:
-                cursor.execute("UPDATE users SET remaining_plays=%s WHERE id=%s", (plays, user_id))
-            if new_password:
-                hashed = hash_password(new_password)
-                cursor.execute("UPDATE users SET password_hash=%s WHERE id=%s", (hashed, user_id))
-        conn.commit()
-        return jsonify({"message": "User updated successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
+    def metrics(session):
+        events = session.events or []
+        return {'turns': turns(session), 'evidence_count': len(set(session.evidence_used or [])), 'custom_actions': sum(1 for e in events if e.get('type') == 'action' and e.get('mode') == 'custom'), 'elapsed_seconds': max(0, int(((session.updated_at or now())-session.created_at).total_seconds())), 'reflection_saved': bool(session.reflection)}
 
-def parse_markdown_files():
-    scripts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'LMT_Script')
-    scripts = []
-    if not os.path.exists(scripts_dir):
-        return scripts
+    def serialize_session(session, detail=False):
+        script = session.script_snapshot or find_script(g.db, session.script_id) or {'title': '已归档剧本', 'roles': [], 'evidence': [], 'legal_references': []}
+        result = {'id': session.id, 'session_id': session.id, 'script_id': session.script_id, 'script_title': script['title'], 'character_name': session.character_name, 'status': session.status, 'created_at': iso(session.created_at), 'updated_at': iso(session.updated_at), 'metrics': metrics(session)}
+        if detail:
+            result.update(script={k: v for k, v in script.items() if k != 'evidence'} | {'evidence_count': len(script.get('evidence', []))}, chat_history=session.chat_history or [], evidence=visible_evidence(script, turns(session)), evidence_used=session.evidence_used or [], end_report=session.end_report, feedback=(session.report_data or {}).get('feedback', []), reflection=session.reflection or '', events=session.events or [], model_label=(session.report_data or {}).get('model_label') or os.getenv('AI_MODEL') or os.getenv('AI_PROVIDER', 'gemini').title())
+        return result
 
-    for filename in os.listdir(scripts_dir):
-        if filename.endswith(".md"):
-            filepath = os.path.join(scripts_dir, filename)
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read()
-            lines = content.split('\n')
-            title = filename.replace('.md', '')
-            roles = []
-            for line in lines:
-                if line.startswith('# '):
-                    title = line[2:].strip()
-                elif line.startswith('- '):
-                    roles.append(line[2:].strip())
-            scripts.append({"id": filename, "title": title, "roles": roles, "content": content})
-    return scripts
+    @app.get('/api/health')
+    def health():
+        return jsonify(status='ok', version='0.2.0', ai_provider=os.getenv('AI_PROVIDER', 'gemini'))
 
-@app.route('/api/scripts', methods=['GET'])
-def get_scripts():
-    scripts = parse_markdown_files()
-    summaries = [{"id": s["id"], "title": s["title"]} for s in scripts]
-    return jsonify(summaries), 200
+    @app.get('/api/auth/options')
+    def auth_options():
+        return jsonify(email_verification_required=False, registration_open=True)
 
-@app.route('/api/scripts/<script_id>', methods=['GET'])
-def get_script(script_id):
-    scripts = parse_markdown_files()
-    for s in scripts:
-        if s["id"] == script_id:
-            return jsonify(s), 200
-    return jsonify({"error": "Script not found"}), 404
+    @app.post('/api/auth/register')
+    def register():
+        data = body()
+        email = str(data.get('email', '')).strip().lower()
+        password = str(data.get('password', ''))
+        name = str(data.get('display_name', '')).strip()
+        if not EMAIL.fullmatch(email) or len(email) > 255:
+            raise ValueError('请输入有效的邮箱地址')
+        if not 8 <= len(password) <= 128:
+            raise ValueError('密码长度需要为8至128位')
+        if not 2 <= len(name) <= 40:
+            raise ValueError('昵称长度需要为2至40个字符')
+        if not data.get('accepted_terms'):
+            raise ValueError('请先阅读并同意使用说明')
+        if g.db.scalar(select(User).where(User.email == email)):
+            return jsonify(error='该邮箱已注册，请直接登录'), 409
+        user = User(email=email, display_name=name, password_hash=generate_password_hash(password), remaining_plays=100, is_admin=False)
+        g.db.add(user)
+        try:
+            g.db.commit()
+        except IntegrityError:
+            g.db.rollback()
+            return jsonify(error='该邮箱已注册'), 409
+        return jsonify(issue_token(user)), 201
 
-@app.route('/api/play/start', methods=['POST'])
-def play_start():
-    data = request.json
-    user_id = data.get('token')
-    script_id = data.get('script_id')
-    character = data.get('character')
+    @app.post('/api/auth/login')
+    def login():
+        data = body()
+        email = str(data.get('email', '')).strip().lower()
+        password = str(data.get('password', ''))
+        if len(password) > 128:
+            raise ValueError('密码长度不正确')
+        ip = request.remote_addr or 'unknown'
+        key = (ip, email)
+        with rate_lock:
+            cutoff = now()-timedelta(minutes=10)
+            if len(login_attempts) > 2000:
+                login_attempts.clear()
+            login_attempts[key] = [t for t in login_attempts[key] if t > cutoff]
+            if len(login_attempts[key]) >= 12:
+                return jsonify(error='尝试次数过多，请稍后重试'), 429
+            login_attempts[key].append(now())
+        user = g.db.scalar(select(User).where(User.email == email))
+        valid = False
+        if user:
+            if len(user.password_hash) == 64:
+                valid = hmac.compare_digest(user.password_hash, hashlib.sha256(password.encode()).hexdigest())
+                if valid:
+                    user.password_hash = generate_password_hash(password)
+            else:
+                valid = check_password_hash(user.password_hash, password)
+        if not valid:
+            return jsonify(error='邮箱或密码不正确'), 401
+        with rate_lock:
+            login_attempts.pop(key, None)
+        return jsonify(issue_token(user))
 
-    if not all([user_id, script_id, character]):
-        return jsonify({"error": "Missing fields"}), 400
+    @app.post('/api/auth/logout')
+    @auth
+    def logout():
+        g.db.delete(g.token)
+        g.db.commit()
+        return jsonify(message='已退出登录')
 
-    scripts = parse_markdown_files()
-    script = next((s for s in scripts if s["id"] == script_id), None)
-    if not script:
-        return jsonify({"error": "Script not found"}), 404
+    @app.get('/api/auth/me')
+    @auth
+    def me():
+        return jsonify(public_user(g.user))
 
-    scene_data = generate_scene(script['content'], character)
+    @app.get('/api/scripts')
+    @auth
+    def list_scripts():
+        favorites = set(g.db.scalars(select(Favorite.script_id).where(Favorite.user_id == g.user.id)))
+        q = request.args.get('q', '').strip().lower()
+        items = []
+        for script in scripts(g.db):
+            if request.args.get('category') and script['category'] != request.args['category']:
+                continue
+            if request.args.get('difficulty') and script['difficulty'] != request.args['difficulty']:
+                continue
+            if request.args.get('favorite') == '1' and script['id'] not in favorites:
+                continue
+            if q and q not in json.dumps(script, ensure_ascii=False).lower():
+                continue
+            items.append({k: v for k, v in script.items() if k not in ['context', 'evidence'] } | {'favorite': script['id'] in favorites, 'evidence_count': len(script.get('evidence', []))})
+        return jsonify(items)
 
-    conn = get_db_connection()
-    try:
-        import json
-        with conn.cursor() as cursor:
-            # Check remaining plays
-            cursor.execute("SELECT remaining_plays FROM users WHERE id=%s", (user_id,))
-            user = cursor.fetchone()
-            if not user or user['remaining_plays'] <= 0:
-                return jsonify({"error": "No remaining plays available. You only have 1 play. Contact admin for more."}), 403
+    @app.get('/api/scripts/<script_id>')
+    @auth
+    def script_detail(script_id):
+        script = find_script(g.db, script_id)
+        if not script:
+            return jsonify(error='剧本不存在'), 404
+        # Full evidence content is revealed by the session, not by the lobby.
+        return jsonify({k: v for k, v in script.items() if k != 'evidence'} | {'evidence_count': len(script.get('evidence', [])), 'favorite': g.db.get(Favorite, (g.user.id, script_id)) is not None})
 
-            # Decrement plays
-            cursor.execute("UPDATE users SET remaining_plays = remaining_plays - 1 WHERE id=%s", (user_id,))
+    @app.post('/api/scripts/<script_id>/favorite')
+    @auth
+    def favorite(script_id):
+        if not find_script(g.db, script_id):
+            return jsonify(error='剧本不存在'), 404
+        saved = g.db.get(Favorite, (g.user.id, script_id))
+        if saved:
+            g.db.delete(saved)
+        else:
+            g.db.add(Favorite(user_id=g.user.id, script_id=script_id))
+        g.db.commit()
+        return jsonify(favorite=saved is None)
 
-            history = [{"role": "ai", "content": scene_data}]
-            cursor.execute(
-                "INSERT INTO sessions (user_id, script_id, character_name, chat_history, current_scene, status) VALUES (%s, %s, %s, %s, %s, %s)",
-                (user_id, script_id, character, json.dumps(history), scene_data.get('narrator_text', ''), 'ongoing')
-            )
-            session_id = cursor.lastrowid
-        conn.commit()
-    finally:
-        conn.close()
+    @app.get('/api/dashboard')
+    @auth
+    def dashboard():
+        rows = list(g.db.scalars(select(PlaySession).where(PlaySession.user_id == g.user.id).order_by(PlaySession.created_at.desc())))
+        return jsonify(user=public_user(g.user), completed=sum(r.status == 'ended' for r in rows), total_sessions=len(rows), evidence_count=sum(metrics(r)['evidence_count'] for r in rows), reflection_count=sum(bool(r.reflection) for r in rows), recent=[serialize_session(r) for r in rows[:4]])
 
-    return jsonify({"session_id": session_id, "scene": scene_data}), 200
+    @app.get('/api/history')
+    @auth
+    def history():
+        rows = g.db.scalars(select(PlaySession).where(PlaySession.user_id == g.user.id).order_by(PlaySession.created_at.desc()))
+        return jsonify([serialize_session(r) for r in rows])
 
-@app.route('/api/play/action', methods=['POST'])
-def play_action():
-    data = request.json
-    session_id = data.get('session_id')
-    user_action = data.get('action')
+    @app.post('/api/play/start')
+    @auth
+    def start():
+        data = body()
+        script = find_script(g.db, str(data.get('script_id', '')))
+        character = str(data.get('character', ''))
+        if not script:
+            return jsonify(error='剧本不存在'), 404
+        if character not in [r['name'] for r in script['roles']]:
+            raise ValueError('请选择剧本中的角色')
+        if g.user.remaining_plays <= 0:
+            return jsonify(error='可用演绎次数不足，请联系管理员'), 403
+        scene = generate_scene(script, character)
+        charged = g.db.execute(update(User).where(User.id == g.user.id, User.remaining_plays > 0).values(remaining_plays=User.remaining_plays-1))
+        if charged.rowcount != 1:
+            g.db.rollback()
+            return jsonify(error='可用演绎次数不足'), 403
+        session = PlaySession(user_id=g.user.id, script_id=script['id'], character_name=character, script_snapshot=script, chat_history=[{'role': 'ai', 'content': scene}], current_scene=scene['narrator_text'], status='ended' if scene['is_ended'] else 'ongoing', end_report=scene.get('end_report'), events=[{'type': 'start', 'at': iso(now())}], evidence_used=[], report_data={'feedback': scene.get('feedback', []), 'model_label': scene.get('model_label', '')})
+        g.db.add(session)
+        g.db.commit()
+        return jsonify(session_id=session.id, scene=scene), 201
 
-    conn = get_db_connection()
-    try:
-        import json
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM sessions WHERE id=%s", (session_id,))
-            session = cursor.fetchone()
-            if not session:
-                return jsonify({"error": "Session not found"}), 404
+    @app.get('/api/sessions/<int:sid>')
+    @app.get('/api/play/<int:sid>')
+    @auth
+    def get_session(sid):
+        session = owned_session(sid)
+        if not session:
+            return jsonify(error='对局不存在'), 404
+        return jsonify(serialize_session(session, True))
 
-            if session.get('status') == 'ended':
-                return jsonify({"error": "Session is already ended"}), 400
+    @app.post('/api/play/action')
+    @auth
+    def action():
+        data = body()
+        try:
+            sid = int(data.get('session_id', 0))
+        except (TypeError, ValueError):
+            raise ValueError('对局编号不正确')
+        session = owned_session(sid)
+        if not session:
+            return jsonify(error='对局不存在'), 404
+        if session.status != 'ongoing':
+            return jsonify(error='本次演绎已结束'), 409
+        action_text = str(data.get('action', '')).strip()
+        if not action_text or len(action_text) > 1500:
+            raise ValueError('请输入1至1500字的行动内容')
+        script = session.script_snapshot or find_script(g.db, session.script_id)
+        if not script:
+            return jsonify(error='剧本已归档，暂无法继续'), 409
+        evidence_ids = data.get('evidence_ids', [])
+        available = {e['id'] for e in visible_evidence(script, turns(session))}
+        if not isinstance(evidence_ids, list) or any(e not in available for e in evidence_ids):
+            raise ValueError('只能呈递已解锁的线索')
+        target = str(data.get('target', '')).strip()
+        if target and target not in [r['name'] for r in script['roles']]:
+            raise ValueError('对话对象不属于当前剧本')
+        acquired = g.db.execute(update(PlaySession).where(PlaySession.id == sid, or_(PlaySession.is_busy == False, PlaySession.busy_at < now()-timedelta(seconds=180))).values(is_busy=True, busy_at=now()))
+        if acquired.rowcount != 1:
+            g.db.rollback()
+            return jsonify(error='上一轮正在生成，请稍候'), 409
+        g.db.commit()
+        try:
+            scene = generate_scene(script, session.character_name, action_text, session.chat_history or [], evidence_ids=evidence_ids, target=target, finish=bool(data.get('finish')))
+            used = list(dict.fromkeys((session.evidence_used or []) + evidence_ids))
+            event = {'type': 'action', 'at': iso(now()), 'text': action_text, 'mode': 'choice' if data.get('mode') == 'choice' else 'custom', 'evidence_ids': evidence_ids, 'target': target}
+            session.chat_history = (session.chat_history or []) + [{'role': 'user', 'content': action_text, 'evidence_ids': evidence_ids, 'target': target}, {'role': 'ai', 'content': scene}]
+            session.current_scene = scene['narrator_text']
+            session.events = (session.events or []) + [event]
+            session.evidence_used = used
+            session.updated_at = now()
+            if scene['is_ended']:
+                session.status = 'ended'
+                session.end_report = scene.get('end_report')
+                session.report_data = {'feedback': scene.get('feedback', []), 'model_label': scene.get('model_label')}
+            session.is_busy = False
+            g.db.commit()
+        except Exception:
+            g.db.rollback()
+            g.db.execute(update(PlaySession).where(PlaySession.id == sid).values(is_busy=False))
+            g.db.commit()
+            raise
+        return jsonify(scene=scene, session=serialize_session(session, True))
 
-            scripts = parse_markdown_files()
-            script = next((s for s in scripts if s["id"] == session['script_id']), None)
-            script_content = script['content'] if script else "Unknown Context"
+    @app.get('/api/report/<int:sid>')
+    @auth
+    def report(sid):
+        session = owned_session(sid)
+        if not session:
+            return jsonify(error='报告不存在'), 404
+        if session.status != 'ended':
+            return jsonify(error='请先完成本次推演'), 409
+        return jsonify(serialize_session(session, True))
 
-            history = json.loads(session['chat_history']) if session['chat_history'] else []
-            history.append({"role": "user", "content": user_action})
+    @app.post('/api/sessions/<int:sid>/reflection')
+    @auth
+    def reflection(sid):
+        session = owned_session(sid)
+        if not session:
+            return jsonify(error='对局不存在'), 404
+        value = str(body().get('reflection', '')).strip()
+        if len(value) > 4000:
+            raise ValueError('复盘记录请控制在4000字以内')
+        session.reflection = value
+        g.db.commit()
+        return jsonify(message='复盘已保存', reflection=value)
 
-            # Format history for AI
-            formatted_history = []
-            for item in history:
-                if item['role'] == 'user':
-                    formatted_history.append(f"USER ({session['character_name']}): {item['content']}")
-                else:
-                    c = item['content']
-                    ai_text = f"NARRATOR: {c.get('narrator_text', '')}"
-                    for dmg in c.get('npc_dialogues', []):
-                        ai_text += f"\nNPC {dmg.get('name', 'Unknown')}: {dmg.get('text', '')}"
-                    formatted_history.append(ai_text)
+    @app.get('/api/sessions/<int:sid>/export')
+    @auth
+    def export(sid):
+        session = owned_session(sid)
+        if not session:
+            return jsonify(error='对局不存在'), 404
+        return Response(json.dumps(serialize_session(session, True), ensure_ascii=False, indent=2), mimetype='application/json', headers={'Content-Disposition': f'attachment; filename=caseplay-session-{sid}.json'})
 
-            history_str = "\n".join(formatted_history)
+    @app.get('/api/admin/users')
+    @admin
+    def admin_users():
+        return jsonify([public_user(u) for u in g.db.scalars(select(User).order_by(User.id.desc()))])
 
-            scene_data = generate_scene(f"Script: {script_content} \n\nPast interactions:\n{history_str}", session['character_name'], user_action)
-            history.append({"role": "ai", "content": scene_data})
+    @app.put('/api/admin/users/<int:uid>')
+    @admin
+    def admin_user(uid):
+        user = g.db.get(User, uid)
+        if not user:
+            return jsonify(error='用户不存在'), 404
+        data = body()
+        if 'remaining_plays' in data:
+            user.remaining_plays = max(0, min(10000, int(data['remaining_plays'])))
+        g.db.commit()
+        return jsonify(public_user(user))
 
-            is_ended = scene_data.get('is_ended', False)
-            status = 'ended' if is_ended else 'ongoing'
-            end_report = scene_data.get('end_report', None)
+    def draft_data(d):
+        return {'id': d.id, 'payload': d.payload, 'status': d.status, 'review_note': d.review_note, 'created_at': iso(d.created_at), 'reviewed_by': d.reviewed_by}
 
-            cursor.execute("UPDATE sessions SET chat_history=%s, current_scene=%s, status=%s, end_report=%s WHERE id=%s",
-                           (json.dumps(history), scene_data.get('narrator_text', ''), status, end_report, session_id))
-        conn.commit()
-    finally:
-        conn.close()
+    @app.get('/api/admin/drafts')
+    @admin
+    def draft_list():
+        return jsonify([draft_data(d) for d in g.db.scalars(select(ScriptDraft).order_by(ScriptDraft.created_at.desc()))])
 
-    return jsonify({"scene": scene_data, "status": status, "end_report": end_report}), 200
+    @app.post('/api/admin/drafts/generate')
+    @admin
+    def draft_generate():
+        data = body()
+        topic = str(data.get('topic', '')).strip()
+        category = str(data.get('category', '校园保护'))
+        if not 4 <= len(topic) <= 300 or category not in CATEGORIES:
+            raise ValueError('请输入4至300字的剧本主题，并选择有效分类')
+        payload = validate_script(generate_script(topic, category, legal_sources()))
+        draft = ScriptDraft(id='draft-'+secrets.token_hex(8), payload=payload, created_by=g.user.id)
+        g.db.add(draft)
+        g.db.commit()
+        return jsonify(draft_data(draft)), 201
 
-@app.route('/api/report/<session_id>', methods=['GET'])
-def get_report(session_id):
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id, script_id, character_name, end_report, created_at FROM sessions WHERE id=%s AND status='ended'", (session_id,))
-            session = cursor.fetchone()
-            if not session:
-                return jsonify({"error": "Report not found or session not ended"}), 404
+    @app.put('/api/admin/drafts/<draft_id>')
+    @admin
+    def draft_edit(draft_id):
+        draft = g.db.get(ScriptDraft, draft_id)
+        if not draft:
+            return jsonify(error='草稿不存在'), 404
+        if draft.status == 'published':
+            return jsonify(error='已发布版本不可直接覆盖，请创建新草稿'), 409
+        draft.payload = validate_script(body().get('payload'))
+        g.db.commit()
+        return jsonify(draft_data(draft))
 
-            scripts = parse_markdown_files()
-            script = next((s for s in scripts if s["id"] == session['script_id']), None)
-            session['script_title'] = script['title'] if script else "Unknown Script"
-            session['model_label'] = os.getenv('AI_MODEL') or {'gemini': 'Gemini', 'deepseek': 'DeepSeek', 'openai': 'OpenAI', 'qwen': '通义千问'}.get(os.getenv('AI_PROVIDER', 'gemini'), 'AI 主持模型')
+    @app.post('/api/admin/drafts/<draft_id>/publish')
+    @admin
+    def draft_publish(draft_id):
+        draft = g.db.get(ScriptDraft, draft_id)
+        if not draft:
+            return jsonify(error='草稿不存在'), 404
+        note = str(body().get('review_note', '')).strip()
+        if not 8 <= len(note) <= 2000:
+            raise ValueError('请填写至少8字的人工审校意见')
+        draft.payload = validate_script(draft.payload)
+        draft.status, draft.review_note, draft.reviewed_by = 'published', note, g.user.id
+        g.db.commit()
+        return jsonify(draft_data(draft))
 
-            return jsonify(session), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
+    return app
 
-@app.route('/api/history', methods=['GET'])
-def get_history():
-    user_id = request.args.get('token')
-    if not user_id:
-        return jsonify({"error": "Token is required"}), 400
 
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT id, script_id, character_name, status, end_report, created_at FROM sessions WHERE user_id=%s ORDER BY created_at DESC", (user_id,))
-            sessions = cursor.fetchall()
-
-            scripts = parse_markdown_files()
-            script_map = {s['id']: s['title'] for s in scripts}
-
-            for s in sessions:
-                s['script_title'] = script_map.get(s['script_id'], "Unknown Script")
-
-            return jsonify(sessions), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        conn.close()
-
+app = create_app() if os.getenv('CASEPLAY_FACTORY_ONLY') != '1' else None
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host=os.getenv('HOST', '127.0.0.1'), port=int(os.getenv('PORT', '5000')), debug=False)

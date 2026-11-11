@@ -1,11 +1,40 @@
 {
   "name": "caseplay",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deploy Caseplay and configure AI providers from the command line",
   "type": "module",
-  "bin": { "caseplay": "bin/caseplay.js" },
-  "engines": { "node": ">=20" },
-  "repository": { "type": "git", "url": "git+https://github.com/caseplay/caseplay.git" },
-  "files": ["bin/", "Dockerfile", "compose.yaml", "db_init.sql", ".dockerignore", ".env.example", "deploy/", "config/config.yaml", "LMT_Server/**/*.py", "LMT_Server/requirements.txt", "LMT_Script/*.md", "LMT_UI/src/", "LMT_UI/public/", "LMT_UI/index.html", "LMT_UI/vite.config.js", "LMT_UI/package.json", "LMT_UI/package-lock.json"],
-  "scripts": { "test": "node --test tests/*.test.js", "prepublishOnly": "npm test" }
+  "bin": {
+    "caseplay": "bin/caseplay.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/caseplay/caseplay.git"
+  },
+  "files": [
+    "bin/",
+    "Dockerfile",
+    "compose.yaml",
+    "db_init.sql",
+    ".dockerignore",
+    ".env.example",
+    "deploy/",
+    "config/config.yaml",
+    "LMT_Server/**/*.py",
+    "LMT_Server/requirements.txt",
+    "LMT_Script/*.md",
+    "LMT_UI/src/",
+    "LMT_UI/public/",
+    "LMT_UI/index.html",
+    "LMT_UI/vite.config.js",
+    "LMT_UI/package.json",
+    "LMT_UI/package-lock.json",
+    "LMT_Script/*.json"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "prepublishOnly": "npm test"
+  }
 }

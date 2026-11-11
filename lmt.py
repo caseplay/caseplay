@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parent
 
 def main():
     parser = argparse.ArgumentParser(description='Caseplay部署工具')
-    parser.add_argument('command', choices=['init', 'serve', 'db-init', 'up', 'down'])
+    parser.add_argument('command', choices=['init', 'serve', 'db-init', 'up', 'down', 'admin'])
+    parser.add_argument('email', nargs='?')
     args = parser.parse_args()
     os.chdir(ROOT)
     if args.command == 'init':
@@ -29,16 +30,22 @@ def main():
             from main import app
             app.run(host=os.getenv('HOST', '127.0.0.1'), port=int(os.getenv('PORT', '5000')), debug=False)
         else:
-            from utils.db import get_db_connection
-            connection = get_db_connection()
-            try:
-                with connection.cursor() as cursor:
-                    for statement in (ROOT / 'db_init.sql').read_text().split(';'):
-                        if statement.strip():
-                            cursor.execute(statement)
-                connection.commit()
-            finally:
-                connection.close()
+            from storage import make_storage, initialize, User
+            from sqlalchemy import select
+            engine, factory = make_storage()
+            initialize(engine)
+            if args.command == 'admin':
+                if not args.email:
+                    parser.error('admin 需要已注册用户的邮箱')
+                with factory() as db:
+                    user = db.scalar(select(User).where(User.email == args.email.strip().lower()))
+                    if user is None:
+                        parser.error('该邮箱尚未注册')
+                    user.is_admin = True
+                    db.commit()
+                print('已授予内容管理员权限。')
+            else:
+                print('数据库结构已初始化并完成兼容迁移。')
 
 if __name__ == '__main__':
     main()

@@ -6,4 +6,4 @@ COPY LMT_Server /app/LMT_Server
 COPY LMT_Script /app/LMT_Script
 COPY config /app/config
 WORKDIR /app/LMT_Server
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "main:app"]
+CMD ["sh", "-c", "python -c 'from storage import make_storage, initialize; engine, _ = make_storage(); initialize(engine); engine.dispose()' && exec gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 main:app"]

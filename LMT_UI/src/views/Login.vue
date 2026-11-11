@@ -1,172 +1,139 @@
 <template>
-  <div class="login-page">
-    <div class="glass-panel login-box">
-      <h2>{{ isLogin ? '登录' : '注册账号' }}</h2>
-      <p class="subtitle">{{ isLogin ? '欢迎回到 Caseplay' : '创建一个账号开启普法之旅' }}</p>
-
-      <form @submit.prevent="handleSubmit">
-        <div class="input-group">
-          <input type="email" v-model="form.email" placeholder="邮箱地址" required />
+  <div class="auth-page">
+    <section class="auth-story">
+      <RouterLink to="/login" class="brand light"
+        ><span class="brand-mark">C<span></span></span>
+        <div>Caseplay<small>智法剧场</small></div></RouterLink
+      >
+      <div class="auth-copy">
+        <div class="eyebrow">YOUR CHOICES MATTER</div>
+        <h1>每一个选择，<br />都值得被理解。</h1>
+        <p>
+          走进不同的角色，寻找事实与证据。<br />让法治学习发生在你参与的故事里。
+        </p>
+        <div class="auth-scene">
+          <div class="paper one"><span>事实</span><i></i><i></i><i></i></div>
+          <div class="paper two"><span>证据</span><i></i><i></i><i></i></div>
+          <div class="auth-orbit"></div>
+          <div class="scale-symbol">⚖</div>
         </div>
-
-        <div class="input-group code-group" v-if="!isLogin">
-          <input type="text" v-model="form.code" placeholder="验证码" required />
-          <button type="button" @click="sendCode" :disabled="!form.email || countdown > 0">
-            {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+      </div>
+      <small class="auth-credit">情境推理 / 角色互动 / 法理复盘</small>
+    </section>
+    <section class="auth-form">
+      <div class="auth-form-inner">
+        <span class="eyebrow">START YOUR STORY</span>
+        <h2>{{ register ? "创建你的学习账号" : "欢迎回到智法剧场" }}</h2>
+        <p class="muted">
+          {{
+            register
+              ? "从一个真实的选择开始，开启你的法治探索。"
+              : "你的故事与思考，已经为你妥善保存。"
+          }}
+        </p>
+        <form @submit.prevent="submit">
+          <label v-if="register"
+            >学习昵称<input
+              v-model="form.display_name"
+              placeholder="例如：小林同学"
+              minlength="2"
+              maxlength="40"
+              required
+              autocomplete="nickname"
+          /></label>
+          <label
+            >邮箱地址<input
+              v-model="form.email"
+              type="email"
+              placeholder="yourname@example.com"
+              autocomplete="email"
+              required
+          /></label>
+          <label
+            >登录密码
+            <div class="password-field">
+              <input
+                v-model="form.password"
+                :type="show ? 'text' : 'password'"
+                :autocomplete="register ? 'new-password' : 'current-password'"
+                placeholder="至少8位字符"
+                minlength="8"
+                maxlength="128"
+                required
+              /><button
+                type="button"
+                @click="show = !show"
+                :aria-label="show ? '隐藏密码' : '显示密码'"
+              >
+                {{ show ? "隐藏" : "显示" }}
+              </button>
+            </div></label
+          >
+          <label v-if="register" class="check-label"
+            ><input
+              v-model="form.accepted_terms"
+              type="checkbox"
+              required
+            /><span
+              >我了解这是教学情境平台，同意保存本账号的演绎与学习记录。</span
+            ></label
+          >
+          <p v-if="error" class="error-banner" role="alert">{{ error }}</p>
+          <button class="primary-button auth-submit" :disabled="busy">
+            {{
+              busy
+                ? "正在进入…"
+                : register
+                  ? "注册并开启探索"
+                  : "登录并继续探索"
+            }}<ArrowRight />
           </button>
+        </form>
+        <p class="auth-switch">
+          {{ register ? "已有账号？" : "第一次来到这里？" }}
+          <RouterLink :to="register ? '/login' : '/register'">{{
+            register ? "直接登录" : "创建账号"
+          }}</RouterLink>
+        </p>
+        <div class="auth-bottom">
+          <Lock />密码加密存储，演绎记录仅你本人可见。
         </div>
-
-        <div class="input-group">
-          <input type="password" v-model="form.password" placeholder="密码" required />
-        </div>
-
-        <button type="submit" class="submit-btn">{{ isLogin ? '登录并进入' : '注册' }}</button>
-      </form>
-
-      <p class="toggle-mode">
-        {{ isLogin ? "还没有账号？" : "已经有账号？" }}
-        <a href="#" @click.prevent="isLogin = !isLogin">{{ isLogin ? '注册账号' : '直接登录' }}</a>
-      </p>
-
-      <p class="error-msg" v-if="errorMsg">{{ errorMsg }}</p>
-    </div>
+      </div>
+    </section>
   </div>
 </template>
-
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
-import axios from 'axios'
-import { ElMessage, ElMessageBox } from 'element-plus'
-
-const router = useRouter()
-const isLogin = ref(true)
-const countdown = ref(0)
-const errorMsg = ref('')
-
+import { reactive, computed, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { ArrowRight, Lock } from "@element-plus/icons-vue";
+import { api, saveAccount } from "../lib/api";
+const route = useRoute(),
+  router = useRouter(),
+  register = computed(() => route.name === "Register"),
+  show = ref(false),
+  busy = ref(false),
+  error = ref("");
 const form = reactive({
-  email: '',
-  code: '',
-  password: ''
-})
-
-const API_BASE = `${import.meta.env.VITE_API_BASE || '/api'}/auth`
-
-const startCountdown = () => {
-  countdown.value = 60
-  const timer = setInterval(() => {
-    countdown.value--
-    if (countdown.value <= 0) clearInterval(timer)
-  }, 1000)
-}
-
-const sendCode = async () => {
-  errorMsg.value = ''
-
-  // Regex check for email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(form.email)) {
-    errorMsg.value = '邮箱格式不正确'
-    ElMessage.error(errorMsg.value)
-    return
-  }
-
+  display_name: "",
+  email: "",
+  password: "",
+  accepted_terms: false,
+});
+async function submit() {
+  busy.value = true;
+  error.value = "";
   try {
-    const res = await axios.post(`${API_BASE}/send_code`, { email: form.email })
-
-    if (res.data.user_exists && !isLogin.value) {
-      ElMessageBox.alert('此邮箱已经注册过。再次注册即代表修改您的密码！', '提示', {
-        confirmButtonText: '明白',
-        type: 'warning',
-      })
-    } else {
-      ElMessage.success('验证码已发送！')
-    }
-
-    startCountdown()
-  } catch (err) {
-    errorMsg.value = err.response?.data?.error || '验证码发送失败，请重试。'
-    ElMessage.error(errorMsg.value)
-  }
-}
-
-const handleSubmit = async () => {
-  errorMsg.value = ''
-  try {
-    if (isLogin.value) {
-      const res = await axios.post(`${API_BASE}/login`, {
-        email: form.email,
-        password: form.password
-      })
-      localStorage.setItem('token', res.data.token)
-      ElMessage.success('登录成功！')
-      router.push({ name: 'Home' })
-    } else {
-      const resp = await axios.post(`${API_BASE}/register`, form)
-      isLogin.value = true
-      form.code = ''
-      if (resp.data.is_update) {
-        ElMessage.success('密码修改成功！请重新登录。')
-      } else {
-        ElMessage.success('注册成功！请登录。')
-      }
-    }
-  } catch (err) {
-    errorMsg.value = err.response?.data?.error || '操作发生错误，请重试。'
-    ElMessage.error(errorMsg.value)
+    saveAccount(
+      await api(register.value ? "/auth/register" : "/auth/login", {
+        method: "POST",
+        body: form,
+      }),
+    );
+    router.push("/");
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = false;
   }
 }
 </script>
-
-<style scoped>
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 65px);
-  padding: 2rem;
-}
-.login-box {
-  width: 100%;
-  max-width: 400px;
-  text-align: center;
-}
-h2 {
-  margin-bottom: 0.5rem;
-  font-size: 2rem;
-}
-.subtitle {
-  color: var(--text-muted);
-  margin-bottom: 2rem;
-}
-.code-group {
-  display: flex;
-  gap: 1rem;
-}
-.code-group input {
-  flex: 1;
-}
-.code-group button {
-  white-space: nowrap;
-  margin-bottom: 1rem;
-}
-.submit-btn {
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.8rem;
-  font-size: 1.1rem;
-}
-.toggle-mode {
-  margin-top: 1.5rem;
-  color: var(--text-muted);
-}
-.toggle-mode a {
-  color: var(--primary);
-  text-decoration: none;
-}
-.error-msg {
-  color: #ef4444;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-}
-</style>
